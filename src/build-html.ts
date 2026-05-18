@@ -24,10 +24,73 @@ const oct35Iv = db
   .all("O:DBA261016C00035000")
   .filter((r) => r.iv != null);
 
+/**
+ * Live signals from the primary sources flagged in el-nino-deep-dive.md.
+ * Refreshed manually — re-run with new figures as the calendar rolls.
+ */
+const liveSignals = {
+  asOf: "2026-05-18",
+  signals: [
+    {
+      source: "NOAA CPC ENSO Diagnostic Discussion",
+      date: "2026-05-14",
+      tone: "bullish",
+      headline: "ENSO Alert: El Niño Watch",
+      value: "Niño 3.4: +0.4°C · MJJ 2026 P(El Niño) = 82% · DJF 2026-27 = 96%",
+      detail:
+        "NOAA classifies status as 'El Niño Watch.' Likely to emerge through summer 2026 and continue into Northern Hemisphere winter 2026-27. Strength category uncertain — no single bucket above 37% probability.",
+      url: "https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso_advisory/ensodisc.shtml",
+    },
+    {
+      source: "IRI / CPC ENSO Forecast Plumes",
+      date: "2026-04-20",
+      tone: "bullish",
+      headline: "Subsurface load confirmed",
+      value: "MJJ 2026: ~88% El Niño · JJA-onwards: 88-94% · Niño 1+2 = +1.8°C",
+      detail:
+        "Multimodel ensemble shows rapid warming toward El Niño onset. Above-average subsurface temperatures spreading across Pacific basin. Spring predictability barrier caveat applies.",
+      url: "https://iri.columbia.edu/our-expertise/climate/forecasts/enso/current/",
+    },
+    {
+      source: "IMD India Long Range Monsoon Forecast",
+      date: "2026-04-13",
+      tone: "bullish",
+      headline: "Below normal: 92% LPA",
+      value: "P(deficient) 35% + P(below normal) 31% = 66% shortfall risk",
+      detail:
+        "First below-normal monsoon forecast in 3 years. Quantitative: 92% of Long Period Average (87 cm baseline → ~80 cm projected). Primary driver cited: El Niño development June-September.",
+      url: "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2251594",
+    },
+    {
+      source: "USDA WASDE (May 2026)",
+      date: "2026-05-12",
+      tone: "bullish",
+      headline: "Tighter US grain balance for 2026/27",
+      value:
+        "Wheat -18% YoY ending stocks (762M bu) · Corn -6% production (16.0B bu) · Soy +173M bu crop",
+      detail:
+        "All-wheat production down 424M bu on reduced area + yield. US corn stocks-to-use 12.1%. Soybeans expand on trend yield and acreage. Market reaction: wheat limit-up on release per AgWeb.",
+      url: "https://www.usda.gov/oce/commodity/wasde/wasde0526v2.pdf",
+    },
+    {
+      source: "MPOB Malaysian Palm Oil (April 2026)",
+      date: "2026-05-11",
+      tone: "neutral",
+      headline: "Stocks 2.30M tons — divergence vs production",
+      value:
+        "CPO production +18.4% MoM (1.63M tons) · Exports -14.3% MoM · Stocks +1.7% to 2.30M tons",
+      detail:
+        "Seasonal production surge per usual. Export weakness drove inventory build despite expected El Niño yield concerns — suggests demand-side softness OR Indonesian competition. Watch May/June numbers for the El Niño yield signal to start hitting the data.",
+      url: "https://www.palmoilmagazine.com/hot-news/2026/05/18/malaysias-palm-oil-stocks-rise-to-2-30-million-tons-in-april-2026-as-cpo-output-surges/",
+    },
+  ],
+};
+
 const payload = {
   ...analysis,
   dbaHistory: dbaHist,
   oct35IvHistory: oct35Iv,
+  liveSignals,
 };
 
 const PAYLOAD = JSON.stringify(payload);
@@ -123,6 +186,25 @@ const html = `<!doctype html>
   }
   .verdict h3 { color: var(--accent); margin-top: 0; }
 
+  .signal-card {
+    background: var(--panel);
+    border-left: 3px solid var(--border);
+    border-radius: 0 6px 6px 0;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+  }
+  .signal-card.bullish { border-left-color: var(--green); }
+  .signal-card.bearish { border-left-color: var(--red); }
+  .signal-card.neutral { border-left-color: var(--yellow); }
+  .signal-card .head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .signal-card .src { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .signal-card .src a { color: var(--accent); text-decoration: none; }
+  .signal-card .src a:hover { text-decoration: underline; }
+  .signal-card .when { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .signal-card .title { font-weight: 600; font-size: 14px; margin: 4px 0; }
+  .signal-card .val { font-family: ui-monospace, "SF Mono", Monaco, Consolas, monospace; font-size: 13px; color: var(--text); margin: 2px 0 6px; }
+  .signal-card .detail { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
   .pill {
     display: inline-block;
     padding: 2px 8px;
@@ -165,6 +247,13 @@ const html = `<!doctype html>
   <div class="small" style="margin-top: 8px;">Total cost ~$3,025 · 100% loss acceptable · Skip the vertical (caps the convex tail) · Skip Oct 2026 (no Q4 catalyst)</div>
 </div>
 
+<h2 style="margin-top: 24px;">0 · Live signals</h2>
+<div class="panel">
+  <div id="signal-cards"></div>
+  <div class="small" style="margin-top: 8px;">Pulled <span id="signals-as-of">—</span> from the primary sources flagged in <a style="color: var(--accent);" href="el-nino-deep-dive.md">el-nino-deep-dive.md</a>. Refresh: NOAA CPC 2nd Thursday monthly · WASDE 12th monthly · MPOB ~10th monthly · IMD April + late May.</div>
+</div>
+
+<h2>Market snapshot</h2>
 <div class="grid cols-4">
   <div class="stat"><div class="label">DBA Spot</div><div class="value mono" id="spot">$—</div></div>
   <div class="stat"><div class="label">30d Realized Vol</div><div class="value mono" id="rv30">—</div></div>
@@ -368,6 +457,23 @@ const STRIKES = [
 
 const DTE_JAN27 = DATA.dteJan27;
 const DTE_OCT26 = Math.round((new Date('2026-10-16') - new Date(DATA.asOf)) / (24*60*60*1000));
+
+// -- live signals --
+if (DATA.liveSignals) {
+  document.getElementById('signals-as-of').textContent = DATA.liveSignals.asOf;
+  const cards = DATA.liveSignals.signals.map(s => \`
+    <div class="signal-card \${s.tone}">
+      <div class="head">
+        <div class="src"><a href="\${s.url}" target="_blank" rel="noopener">\${s.source}</a></div>
+        <div class="when">\${s.date}</div>
+      </div>
+      <div class="title">\${s.headline}</div>
+      <div class="val">\${s.value}</div>
+      <div class="detail">\${s.detail}</div>
+    </div>
+  \`).join('');
+  document.getElementById('signal-cards').innerHTML = cards;
+}
 
 // -- top stats --
 document.getElementById('asOf').textContent = 'as of ' + DATA.asOf;
@@ -732,6 +838,9 @@ window.addEventListener('load', () => requestAnimationFrame(renderAll));
 </html>
 `;
 
-const outPath = resolve(import.meta.dir, "..", "reports", "dba-el-nino.html");
-writeFileSync(outPath, html);
-console.log(`✓ wrote ${outPath} (${html.length} chars, ${PAYLOAD.length} chars of embedded data)`);
+const reportsPath = resolve(import.meta.dir, "..", "reports", "dba-el-nino.html");
+const docsPath = resolve(import.meta.dir, "..", "docs", "index.html");
+writeFileSync(reportsPath, html);
+writeFileSync(docsPath, html);
+console.log(`✓ wrote ${reportsPath}`);
+console.log(`✓ wrote ${docsPath} (${html.length} chars, ${PAYLOAD.length} chars of embedded data)`);
