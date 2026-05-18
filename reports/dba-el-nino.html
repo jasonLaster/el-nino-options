@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DBA · Jan 2027 Speculative Call Analyzer</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1c232c;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --orange: #db6d28;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body { max-width: 1180px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 32px 0 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+  h3 { font-size: 14px; margin: 16px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; }
+  .grid { display: grid; gap: 16px; }
+  .cols-2 { grid-template-columns: 1fr 1fr; }
+  .cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .cols-4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 800px) { .cols-2, .cols-3, .cols-4 { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .stat {
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 12px;
+  }
+  .stat .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  .stat .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+  .yellow { color: var(--yellow); }
+  .orange { color: var(--orange); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .highlight-row td { background: rgba(88, 166, 255, 0.08); }
+
+  .slider-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 80px;
+    align-items: center;
+    gap: 12px;
+    margin: 10px 0;
+  }
+  .slider-row label { color: var(--muted); font-size: 12px; }
+  .slider-row input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  .slider-row .val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  .chart-wrap { position: relative; height: 320px; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  details { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
+  summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+  details[open] summary { margin-bottom: 12px; }
+
+  .verdict {
+    background: linear-gradient(135deg, rgba(88,166,255,0.08), rgba(63,185,80,0.06));
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .verdict h3 { color: var(--accent); margin-top: 0; }
+
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .pill-green { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.4); }
+  .pill-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); border: 1px solid rgba(210,153,34,0.4); }
+  .pill-orange { background: rgba(219,109,40,0.15); color: var(--orange); border: 1px solid rgba(219,109,40,0.4); }
+  .pill-red { background: rgba(248,81,73,0.15); color: var(--red); border: 1px solid rgba(248,81,73,0.4); }
+
+  .small { font-size: 12px; color: var(--muted); }
+  .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, "SF Mono", Monaco, Consolas, monospace; }
+  .toggle-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .toggle {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 16px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .toggle.active { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+
+  .footer { color: var(--muted); font-size: 12px; margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<h1>DBA · Jan 2027 Speculative Call Analyzer</h1>
+<div class="subtitle">El Niño / agricultural inflation thesis · interactive scenario tool · <span id="asOf"></span></div>
+
+<div class="verdict">
+  <h3>🎯 Best speculative trade</h3>
+  <strong>40 × Jan 2027 $35 calls @ ≤ $0.55</strong> &nbsp;+&nbsp; <strong>25 × Jan 2027 $39 calls @ ≤ $0.33</strong>
+  <div class="small" style="margin-top: 8px;">Total cost ~$3,025 · 100% loss acceptable · Skip the vertical (caps the convex tail) · Skip Oct 2026 (no Q4 catalyst)</div>
+</div>
+
+<div class="grid cols-4">
+  <div class="stat"><div class="label">DBA Spot</div><div class="value mono" id="spot">$—</div></div>
+  <div class="stat"><div class="label">30d Realized Vol</div><div class="value mono" id="rv30">—</div></div>
+  <div class="stat"><div class="label">$35 IV</div><div class="value mono" id="iv35">—</div></div>
+  <div class="stat"><div class="label">IV / RV</div><div class="value mono" id="ivrv">—</div></div>
+</div>
+
+<h2>1 · What-if simulator</h2>
+<div class="panel">
+  <div class="slider-row">
+    <label>DBA at exit</label>
+    <input id="sl-spot" type="range" min="20" max="55" step="0.25" value="40" />
+    <div class="val mono"><span id="v-spot">$40.00</span></div>
+  </div>
+  <div class="slider-row">
+    <label>IV at exit</label>
+    <input id="sl-iv" type="range" min="10" max="60" step="0.5" value="30" />
+    <div class="val mono"><span id="v-iv">30.0%</span></div>
+  </div>
+  <div class="slider-row">
+    <label>Months from now</label>
+    <input id="sl-months" type="range" min="0" max="8" step="0.25" value="6" />
+    <div class="val mono"><span id="v-months">6.0 mo</span></div>
+  </div>
+  <div class="slider-row">
+    <label>Risk-free rate</label>
+    <input id="sl-rfr" type="range" min="0" max="8" step="0.1" value="4.3" />
+    <div class="val mono"><span id="v-rfr">4.3%</span></div>
+  </div>
+
+  <table style="margin-top: 16px;">
+    <thead>
+      <tr><th>Structure</th><th>Cost / unit</th><th>Value / unit</th><th>Return mult</th><th>P/L %</th><th>Verdict</th></tr>
+    </thead>
+    <tbody id="sim-rows"></tbody>
+  </table>
+</div>
+
+<h2>2 · Payoff at expiration</h2>
+<div class="panel">
+  <div class="toggle-row" id="payoff-toggles"></div>
+  <div class="chart-wrap"><canvas id="payoffChart"></canvas></div>
+  <div class="small">Per $100 of premium deployed. Solid line = total value, dashed = breakeven.</div>
+</div>
+
+<h2>3 · IV skew · Jan 2027</h2>
+<div class="grid cols-2">
+  <div class="panel">
+    <div class="chart-wrap"><canvas id="skewChart"></canvas></div>
+  </div>
+  <div class="panel">
+    <h3>Reading the skew</h3>
+    <p>DBA Jan 2027 shows <strong>positive call skew</strong> — IV rises with strike. That is unusual for an ETF (typically put-skewed) and means upside calls are being bid by speculation.</p>
+    <p><strong>Implication for the $39 (a.k.a. "$40") leg:</strong> you're paying ~4 vol points more than the $33 strike for less delta. Skew tax = real cost.</p>
+    <p class="small">Compare to: SPY ATM-vs-OTM call skew typically &lt; 1 vol pt. A 5+ pt positive call skew on a 10-strike range is a thesis premium.</p>
+  </div>
+</div>
+
+<h2>4 · Probability cone</h2>
+<div class="panel">
+  <table>
+    <thead>
+      <tr>
+        <th>Vol regime</th>
+        <th>P(DBA ≥ 30)</th>
+        <th>P(DBA ≥ 33)</th>
+        <th>P(DBA ≥ 35)</th>
+        <th>P(DBA ≥ 39)</th>
+        <th>P(DBA ≥ 45)</th>
+        <th>P(DBA ≥ 50)</th>
+      </tr>
+    </thead>
+    <tbody id="prob-rows"></tbody>
+  </table>
+  <div class="small" style="margin-top: 8px;">Lognormal at Jan 15 2027. Real soft-commodity right-tail is fatter than lognormal — treat upside probs as a floor.</div>
+</div>
+
+<h2>5 · Expected value &amp; convexity</h2>
+<div class="grid cols-2">
+  <div class="panel">
+    <h3>EV multiple per regime (lognormal)</h3>
+    <table>
+      <thead><tr><th>Strike</th><th>RV30 (12%)</th><th>Current (25%)</th><th>El Niño (35%)</th><th>Food infl. (45%)</th></tr></thead>
+      <tbody id="ev-rows"></tbody>
+    </table>
+    <div class="small" style="margin-top: 8px;">$1 of premium → expected $X at expiration. &lt;1 = EV-negative.</div>
+  </div>
+  <div class="panel">
+    <h3>Convexity per dollar</h3>
+    <table>
+      <thead><tr><th>Contract</th><th>Mid</th><th>γ/$</th><th>ν/$</th></tr></thead>
+      <tbody id="conv-rows"></tbody>
+    </table>
+    <div class="small" style="margin-top: 8px;">γ/$ ranks raw "lottery efficiency." Oct26 $35 wins but expires 3mo before peak data.</div>
+  </div>
+</div>
+
+<h2>6 · Chain snapshot · Jan 2027</h2>
+<div class="panel" style="overflow-x: auto;">
+  <table>
+    <thead>
+      <tr><th>Strike</th><th>Mid</th><th>IV</th><th>Δ</th><th>γ</th><th>θ</th><th>ν</th><th>OI</th><th>Vol</th><th>Breakeven</th></tr>
+    </thead>
+    <tbody id="chain-rows"></tbody>
+  </table>
+</div>
+
+<h2>7 · Entry tiers</h2>
+<div class="grid cols-2">
+  <div class="panel">
+    <h3>Jan 2027 $35 calls</h3>
+    <table>
+      <tr><td><span class="pill pill-green">Excellent</span></td><td class="mono">$0.35 – $0.42</td><td class="small">IV ~18-20%</td></tr>
+      <tr><td><span class="pill pill-yellow">Good</span></td><td class="mono">$0.43 – $0.50</td><td class="small">IV ~21-23%</td></tr>
+      <tr><td><span class="pill pill-orange">Fair (today)</span></td><td class="mono">$0.51 – $0.60</td><td class="small">currently $0.55</td></tr>
+      <tr><td><span class="pill pill-red">Chase</span></td><td class="mono">&gt; $0.65</td><td class="small">IV &gt; 28%</td></tr>
+    </table>
+  </div>
+  <div class="panel">
+    <h3>Jan 2027 $39 calls ("the $40s")</h3>
+    <table>
+      <tr><td><span class="pill pill-green">Excellent</span></td><td class="mono">$0.18 – $0.23</td><td class="small">pre-thesis</td></tr>
+      <tr><td><span class="pill pill-yellow">Good</span></td><td class="mono">$0.24 – $0.30</td><td class="small">skew flattened</td></tr>
+      <tr><td><span class="pill pill-orange">Fair (today)</span></td><td class="mono">$0.31 – $0.37</td><td class="small">currently $0.33</td></tr>
+      <tr><td><span class="pill pill-red">Chase</span></td><td class="mono">&gt; $0.40</td><td class="small">skew tax compounds</td></tr>
+    </table>
+  </div>
+</div>
+
+<h2>8 · DBA underlying price</h2>
+<div class="panel">
+  <div class="chart-wrap"><canvas id="dbaChart"></canvas></div>
+</div>
+
+<details>
+  <summary>Historical analogs</summary>
+  <table>
+    <thead><tr><th>Episode</th><th>Catalyst</th><th>Soft-comdty move</th><th>DBA move</th><th>What worked</th></tr></thead>
+    <tbody>
+      <tr><td>2010-11 La Niña</td><td>Russia heat / wheat ban</td><td>Wheat +80%, cotton +120%</td><td>+24% / 7mo</td><td>Long-dated OTM calls</td></tr>
+      <tr><td>2012 US drought</td><td>Midwest heat</td><td>Corn +60%, soy +35%</td><td>+15% / 4mo</td><td>Verticals (move was fast)</td></tr>
+      <tr><td>2020-21 reflation</td><td>Stimulus + supply chains</td><td>Corn +90%, soy +60%</td><td>+28% / 12mo</td><td>Long calls + roll</td></tr>
+      <tr><td>2022 food inflation</td><td>Ukraine + drought</td><td>Wheat +60% intraweek</td><td>+18% / 6mo</td><td>Short-dated calls</td></tr>
+      <tr><td>2023-24 cocoa/sugar</td><td>Ghana/Ivory Coast</td><td>Cocoa +400%, sugar +60%</td><td>DBA muted</td><td>Single-commodity futures &gt; DBA</td></tr>
+    </tbody>
+  </table>
+</details>
+
+<details>
+  <summary>Recommended structure payoff table</summary>
+  <table>
+    <thead><tr><th>DBA at Jan 2027</th><th>Total value</th><th>Return on $3,025</th></tr></thead>
+    <tbody id="rec-rows"></tbody>
+  </table>
+</details>
+
+<details>
+  <summary>Caveats &amp; data notes</summary>
+  <ul class="small">
+    <li>Polygon free tier doesn't publish live NBBO bid/ask — bid/ask columns are day low/high of trades.</li>
+    <li>IV rank uses a ~22-day window on Oct 2026 $35 (only contract with daily prints).</li>
+    <li>Jan 2027 chain only lists $19-$39 strikes. No $40 exists. $39 = de facto "$40."</li>
+    <li>Probabilities use a flat lognormal — soft commodities have fatter right tails in practice.</li>
+    <li>Recompute live: <code>bun run src/fetch-chain.ts &amp;&amp; bun run src/analyze.ts &amp;&amp; bun run src/build-html.ts</code></li>
+  </ul>
+</details>
+
+<div class="footer">
+  Generated by <code>el-nino-options</code> · <a style="color: var(--accent);" href="https://github.com/jasonLaster/el-nino-options">github.com/jasonLaster/el-nino-options</a>
+</div>
+
+<script>
+const DATA = {"asOf":"2026-05-18","underlying":"DBA","spot":27.83,"realizedVol":{"rv10":0.17206590897819327,"rv30":0.12293895479908223,"rv60":0.10414223598400861,"rv250":null},"underlying1yRange":{"rank":72.64437689969597,"percentile":94.8,"low":25.44,"high":28.73,"current":27.83},"trend":{"pct_1m":2.655846551088155,"pct_3m":7.910042652190769,"pct_6m":5.416666666666666,"pct_12m":null},"skewCurve":[{"strike":30,"iv":0.2301570015547227,"delta":0.41003626006152427},{"strike":31,"iv":0.22996060685691824,"delta":0.34537437668380416},{"strike":32,"iv":0.24903519542598854,"delta":0.30506713057391616},{"strike":33,"iv":0.2432732940055316,"delta":0.24598476355772725},{"strike":34,"iv":0.22885807964987384,"delta":0.18523328688562749},{"strike":35,"iv":0.2522377396252471,"delta":0.17296976906263967},{"strike":36,"iv":0.2712602954036399,"delta":0.15842219423922568},{"strike":37,"iv":0.27895661413326656,"delta":0.1407813549796458},{"strike":38,"iv":0.2964824315837946,"delta":0.13415600746063433},{"strike":39,"iv":0.27629588646723774,"delta":0.09099917598675498}],"chainSnapshot":{"jan27":[{"ticker":"O:DBA270115C00030000","strike":30,"expiration":"2027-01-15","bid":1.4,"ask":1.6,"mid":1.6,"iv":0.2301570015547227,"delta":0.41003626006152427,"gamma":0.073711859669424,"theta":-0.004251541646166771,"vega":0.09201563526868896,"open_interest":11,"volume":86,"underlying_price":27.83},{"ticker":"O:DBA270115C00031000","strike":31,"expiration":"2027-01-15","bid":1.15,"ask":1.2,"mid":1.15,"iv":0.22996060685691824,"delta":0.34537437668380416,"gamma":0.06960290727976517,"theta":-0.004018531483234695,"vega":0.08196335958123567,"open_interest":230,"volume":12,"underlying_price":27.83},{"ticker":"O:DBA270115C00032000","strike":32,"expiration":"2027-01-15","bid":0.93,"ask":1.05,"mid":0.93,"iv":0.24903519542598854,"delta":0.30506713057391616,"gamma":0.061010279505224356,"theta":-0.004131672814309815,"vega":0.08324787807650277,"open_interest":222,"volume":3,"underlying_price":27.83},{"ticker":"O:DBA270115C00033000","strike":33,"expiration":"2027-01-15","bid":0.76,"ask":0.86,"mid":0.76,"iv":0.2432732940055316,"delta":0.24598476355772725,"gamma":0.056739047426722644,"theta":-0.003675818023278459,"vega":0.06480849287467062,"open_interest":930,"volume":115,"underlying_price":27.83},{"ticker":"O:DBA270115C00034000","strike":34,"expiration":"2027-01-15","bid":0.62,"ask":0.65,"mid":0.63,"iv":0.22885807964987384,"delta":0.18523328688562749,"gamma":0.05065120541210954,"theta":-0.0029105052226853743,"vega":0.06595053425662202,"open_interest":18,"volume":18,"underlying_price":27.83},{"ticker":"O:DBA270115C00035000","strike":35,"expiration":"2027-01-15","bid":0.55,"ask":0.8,"mid":0.55,"iv":0.2522377396252471,"delta":0.17296976906263967,"gamma":0.04421504054971284,"theta":-0.003083744603620445,"vega":0.06681711213880016,"open_interest":10,"volume":36,"underlying_price":27.83},{"ticker":"O:DBA270115C00036000","strike":36,"expiration":"2027-01-15","bid":0.37,"ask":0.37,"mid":0.37,"iv":0.2712602954036399,"delta":0.15842219423922568,"gamma":0.03922012568029214,"theta":-0.0031628027403938874,"vega":0.06769984974863949,"open_interest":10,"volume":10,"underlying_price":27.83},{"ticker":"O:DBA270115C00037000","strike":37,"expiration":"2027-01-15","bid":null,"ask":null,"mid":null,"iv":0.27895661413326656,"delta":0.1407813549796458,"gamma":0.034919928381139005,"theta":-0.002978294866731471,"vega":0.04576995578639857,"open_interest":0,"volume":null,"underlying_price":27.83},{"ticker":"O:DBA270115C00038000","strike":38,"expiration":"2027-01-15","bid":null,"ask":null,"mid":null,"iv":0.2964824315837946,"delta":0.13415600746063433,"gamma":0.03166753695645523,"theta":-0.003049800075943216,"vega":0.04631631543500309,"open_interest":0,"volume":null,"underlying_price":27.83},{"ticker":"O:DBA270115C00039000","strike":39,"expiration":"2027-01-15","bid":0.31,"ask":0.33,"mid":0.33,"iv":0.27629588646723774,"delta":0.09099917598675498,"gamma":0.025866759947617463,"theta":-0.002167098821048918,"vega":0.04708193077237242,"open_interest":906,"volume":142,"underlying_price":27.83}],"oct26":[{"ticker":"O:DBA261016C00035000","strike":35,"expiration":"2026-10-16","bid":0.3,"ask":0.3,"mid":0.3,"iv":0.2786891984819737,"delta":0.13504607877385502,"gamma":0.04308280676321824,"theta":-0.0036756875868770595,"vega":0.03543443976214689,"open_interest":822,"volume":15,"underlying_price":27.83}]},"ivRanks":{"jan27_35":null,"jan27_39":null,"oct26_35":{"n":22,"min":0.23380255126953126,"max":0.2852525253295898,"current":0.2822013778686523,"rank":94.06968124536695,"mean":0.2529693048650568}},"targets":{"jan27_35":{"ticker":"O:DBA270115C00035000","strike":35,"expiration":"2027-01-15","bid":0.55,"ask":0.8,"mid":0.55,"iv":0.2522377396252471,"delta":0.17296976906263967,"gamma":0.04421504054971284,"theta":-0.003083744603620445,"vega":0.06681711213880016,"open_interest":10,"volume":36,"underlying_price":27.83},"jan27_39":{"ticker":"O:DBA270115C00039000","strike":39,"expiration":"2027-01-15","bid":0.31,"ask":0.33,"mid":0.33,"iv":0.27629588646723774,"delta":0.09099917598675498,"gamma":0.025866759947617463,"theta":-0.002167098821048918,"vega":0.04708193077237242,"open_interest":906,"volume":142,"underlying_price":27.83},"jan27_33":{"ticker":"O:DBA270115C00033000","strike":33,"expiration":"2027-01-15","bid":0.76,"ask":0.86,"mid":0.76,"iv":0.2432732940055316,"delta":0.24598476355772725,"gamma":0.056739047426722644,"theta":-0.003675818023278459,"vega":0.06480849287467062,"open_interest":930,"volume":115,"underlying_price":27.83},"jan27_30":{"ticker":"O:DBA270115C00030000","strike":30,"expiration":"2027-01-15","bid":1.4,"ask":1.6,"mid":1.6,"iv":0.2301570015547227,"delta":0.41003626006152427,"gamma":0.073711859669424,"theta":-0.004251541646166771,"vega":0.09201563526868896,"open_interest":11,"volume":86,"underlying_price":27.83},"oct26_35":{"ticker":"O:DBA261016C00035000","strike":35,"expiration":"2026-10-16","bid":0.3,"ask":0.3,"mid":0.3,"iv":0.2786891984819737,"delta":0.13504607877385502,"gamma":0.04308280676321824,"theta":-0.0036756875868770595,"vega":0.03543443976214689,"open_interest":822,"volume":15,"underlying_price":27.83}},"breakevens":{"jan27_30":31.6,"jan27_33":33.76,"jan27_35":35.55,"jan27_39":39.33,"oct26_35":35.3},"scenarios":{"jan27_30":[{"strike":30,"spotAt":30,"optionValue":0,"costPerContract":160,"pnlPerContract":-160,"returnMultiple":0,"pctReturn":-100},{"strike":30,"spotAt":35,"optionValue":500,"costPerContract":160,"pnlPerContract":340,"returnMultiple":3.125,"pctReturn":212.5},{"strike":30,"spotAt":40,"optionValue":1000,"costPerContract":160,"pnlPerContract":840,"returnMultiple":6.25,"pctReturn":525},{"strike":30,"spotAt":45,"optionValue":1500,"costPerContract":160,"pnlPerContract":1340,"returnMultiple":9.375,"pctReturn":837.5},{"strike":30,"spotAt":50,"optionValue":2000,"costPerContract":160,"pnlPerContract":1840,"returnMultiple":12.5,"pctReturn":1150}],"jan27_33":[{"strike":33,"spotAt":30,"optionValue":0,"costPerContract":76,"pnlPerContract":-76,"returnMultiple":0,"pctReturn":-100},{"strike":33,"spotAt":35,"optionValue":200,"costPerContract":76,"pnlPerContract":124,"returnMultiple":2.6315789473684212,"pctReturn":163.1578947368421},{"strike":33,"spotAt":40,"optionValue":700,"costPerContract":76,"pnlPerContract":624,"returnMultiple":9.210526315789474,"pctReturn":821.0526315789474},{"strike":33,"spotAt":45,"optionValue":1200,"costPerContract":76,"pnlPerContract":1124,"returnMultiple":15.789473684210526,"pctReturn":1478.9473684210525},{"strike":33,"spotAt":50,"optionValue":1700,"costPerContract":76,"pnlPerContract":1624,"returnMultiple":22.36842105263158,"pctReturn":2136.842105263158}],"jan27_35":[{"strike":35,"spotAt":30,"optionValue":0,"costPerContract":55.00000000000001,"pnlPerContract":-55.00000000000001,"returnMultiple":0,"pctReturn":-100},{"strike":35,"spotAt":35,"optionValue":0,"costPerContract":55.00000000000001,"pnlPerContract":-55.00000000000001,"returnMultiple":0,"pctReturn":-100},{"strike":35,"spotAt":40,"optionValue":500,"costPerContract":55.00000000000001,"pnlPerContract":445,"returnMultiple":9.09090909090909,"pctReturn":809.090909090909},{"strike":35,"spotAt":45,"optionValue":1000,"costPerContract":55.00000000000001,"pnlPerContract":945,"returnMultiple":18.18181818181818,"pctReturn":1718.181818181818},{"strike":35,"spotAt":50,"optionValue":1500,"costPerContract":55.00000000000001,"pnlPerContract":1445,"returnMultiple":27.27272727272727,"pctReturn":2627.272727272727}],"jan27_39":[{"strike":39,"spotAt":30,"optionValue":0,"costPerContract":33,"pnlPerContract":-33,"returnMultiple":0,"pctReturn":-100},{"strike":39,"spotAt":35,"optionValue":0,"costPerContract":33,"pnlPerContract":-33,"returnMultiple":0,"pctReturn":-100},{"strike":39,"spotAt":40,"optionValue":100,"costPerContract":33,"pnlPerContract":67,"returnMultiple":3.0303030303030303,"pctReturn":203.03030303030303},{"strike":39,"spotAt":45,"optionValue":600,"costPerContract":33,"pnlPerContract":567,"returnMultiple":18.181818181818183,"pctReturn":1718.1818181818182},{"strike":39,"spotAt":50,"optionValue":1100,"costPerContract":33,"pnlPerContract":1067,"returnMultiple":33.333333333333336,"pctReturn":3233.3333333333335}],"oct26_35":[{"strike":35,"spotAt":30,"optionValue":0,"costPerContract":30,"pnlPerContract":-30,"returnMultiple":0,"pctReturn":-100},{"strike":35,"spotAt":35,"optionValue":0,"costPerContract":30,"pnlPerContract":-30,"returnMultiple":0,"pctReturn":-100},{"strike":35,"spotAt":40,"optionValue":500,"costPerContract":30,"pnlPerContract":470,"returnMultiple":16.666666666666668,"pctReturn":1566.6666666666665},{"strike":35,"spotAt":45,"optionValue":1000,"costPerContract":30,"pnlPerContract":970,"returnMultiple":33.333333333333336,"pctReturn":3233.3333333333335},{"strike":35,"spotAt":50,"optionValue":1500,"costPerContract":30,"pnlPerContract":1470,"returnMultiple":50,"pctReturn":4900}],"vertical_35_39":[{"strike":35,"spotAt":30,"optionValue":0,"costPerContract":22.000000000000004,"pnlPerContract":-22.000000000000004,"returnMultiple":0,"pctReturn":-100},{"strike":35,"spotAt":35,"optionValue":0,"costPerContract":22.000000000000004,"pnlPerContract":-22.000000000000004,"returnMultiple":0,"pctReturn":-100},{"strike":35,"spotAt":40,"optionValue":400,"costPerContract":22.000000000000004,"pnlPerContract":378,"returnMultiple":18.18181818181818,"pctReturn":1718.181818181818},{"strike":35,"spotAt":45,"optionValue":400,"costPerContract":22.000000000000004,"pnlPerContract":378,"returnMultiple":18.18181818181818,"pctReturn":1718.181818181818},{"strike":35,"spotAt":50,"optionValue":400,"costPerContract":22.000000000000004,"pnlPerContract":378,"returnMultiple":18.18181818181818,"pctReturn":1718.181818181818}],"mix_70_35_30_39":[{"spotAt":30,"n35":63,"n39":45,"totalCost":4950,"totalValue":0,"pnl":-4950,"returnMultiple":0,"pctReturn":-100},{"spotAt":35,"n35":63,"n39":45,"totalCost":4950,"totalValue":0,"pnl":-4950,"returnMultiple":0,"pctReturn":-100},{"spotAt":40,"n35":63,"n39":45,"totalCost":4950,"totalValue":36000,"pnl":31050,"returnMultiple":7.2727272727272725,"pctReturn":627.2727272727273},{"spotAt":45,"n35":63,"n39":45,"totalCost":4950,"totalValue":90000,"pnl":85050,"returnMultiple":18.181818181818183,"pctReturn":1718.1818181818182},{"spotAt":50,"n35":63,"n39":45,"totalCost":4950,"totalValue":144000,"pnl":139050,"returnMultiple":29.09090909090909,"pctReturn":2809.090909090909}]},"convexityRanking":[{"label":"Oct26 $35","strike":35,"mid":0.3,"delta":0.13504607877385502,"gamma":0.04308280676321824,"iv":0.2786891984819737,"gammaPerDollar":0.14360935587739415,"vegaPerDollar":0.11811479920715631},{"label":"Jan27 $35","strike":35,"mid":0.55,"delta":0.17296976906263967,"gamma":0.04421504054971284,"iv":0.2522377396252471,"gammaPerDollar":0.0803909828176597,"vegaPerDollar":0.1214856584341821},{"label":"Jan27 $39","strike":39,"mid":0.33,"delta":0.09099917598675498,"gamma":0.025866759947617463,"iv":0.27629588646723774,"gammaPerDollar":0.07838412105338625,"vegaPerDollar":0.14267251749203763},{"label":"Jan27 $33","strike":33,"mid":0.76,"delta":0.24598476355772725,"gamma":0.056739047426722644,"iv":0.2432732940055316,"gammaPerDollar":0.07465664135095085,"vegaPerDollar":0.08527433272982976},{"label":"Jan27 $30","strike":30,"mid":1.6,"delta":0.41003626006152427,"gamma":0.073711859669424,"iv":0.2301570015547227,"gammaPerDollar":0.046069912293390004,"vegaPerDollar":0.0575097720429306}],"probAbove":{"rv30":{"30":0.21182605719734893,"33":0.03986845416012297,"35":0.009641624531259496,"39":0.00031198150790689994,"40":0.00011945273482694141,"45":6.164488317583761e-7,"50":1.7900960713745917e-9},"iv_current":{"30":0.31979864963377724,"33":0.17558676548024754,"35":0.11145965697817273,"39":0.040433163531712224,"40":0.03081480887724175,"45":0.007294560588297694,"50":0.0015613456965102301},"el_nino_analog":{"30":0.3423886957371578,"33":0.22953270144836613,"35":0.17185715490710507,"39":0.09232684950343517,"40":0.07847571491686667,"45":0.03372309660411288,"50":0.013960699020209688},"food_inflation_2022":{"30":0.34896388914879584,"33":0.2584165888914224,"35":0.20930968951956752,"39":0.1347643192839988,"40":0.1203488827426693,"45":0.06749751483721111,"50":0.03735537719204984}},"evAnalysis":{"jan27_35":{"rv30":0.018184271996021097,"iv_current":0.762123266162648,"el_nino_analog":1.900246522323156,"food_inflation_2022":3.304596042426536},"jan27_39":{"rv30":0,"iv_current":0.4125875928295484,"el_nino_analog":1.6087853254645952,"food_inflation_2022":3.4517809631817147}},"ivSensitivity":{"jan27_35":[{"spot":28,"iv":0.15,"value":0.011651148434638214,"multiple":0.0002118390624479675},{"spot":28,"iv":0.2,"value":0.35447169971205283,"multiple":0.0064449399947645964},{"spot":28,"iv":0.25,"value":2.1066353929017456,"multiple":0.038302461689122644},{"spot":28,"iv":0.3,"value":6.295823894140318,"multiple":0.11446952534800577},{"spot":28,"iv":0.4,"value":22.900245267823614,"multiple":0.4163680957786111},{"spot":32,"iv":0.15,"value":8.773254545026044,"multiple":0.1595137190004735},{"spot":32,"iv":0.2,"value":22.95112257772045,"multiple":0.41729313777673543},{"spot":32,"iv":0.25,"value":41.35232543899381,"multiple":0.7518604625271601},{"spot":32,"iv":0.3,"value":62.33938897489271,"multiple":1.13344343590714},{"spot":32,"iv":0.4,"value":108.66675692984967,"multiple":1.9757592169063574},{"spot":36,"iv":0.15,"value":163.93553617733295,"multiple":2.980646112315144},{"spot":36,"iv":0.2,"value":189.62230339551775,"multiple":3.4476782435548676},{"spot":36,"iv":0.25,"value":216.59361118362312,"multiple":3.9380656578840565},{"spot":36,"iv":0.3,"value":244.22369111521576,"multiple":4.440430747549377},{"spot":36,"iv":0.4,"value":300.4600971021102,"multiple":5.462910856402003},{"spot":40,"iv":0.15,"value":526.3705002737702,"multiple":9.570372732250366},{"spot":40,"iv":0.2,"value":530.9712949496742,"multiple":9.654023544539529},{"spot":40,"iv":0.25,"value":540.602369093633,"multiple":9.829133983520599},{"spot":40,"iv":0.3,"value":554.6975822141952,"multiple":10.085410585712639},{"spot":40,"iv":0.4,"value":592.4027443315917,"multiple":10.770958987847122}],"jan27_39":[{"spot":28,"iv":0.15,"value":0.0000028722543050185824,"multiple":8.703800924298734e-8},{"spot":28,"iv":0.2,"value":0.0026151458162557237,"multiple":0.00007924684291684011},{"spot":28,"iv":0.25,"value":0.07680371211249877,"multiple":0.002327385215530266},{"spot":28,"iv":0.3,"value":0.5565169019059069,"multiple":0.01686414854260324},{"spot":28,"iv":0.4,"value":5.037205038279979,"multiple":0.15264257691757513},{"spot":32,"iv":0.15,"value":0.062040121206661386,"multiple":0.0018800036729291329},{"spot":32,"iv":0.2,"value":1.0268214049126367,"multiple":0.031115800148867778},{"spot":32,"iv":0.25,"value":4.566713377333453,"multiple":0.1383852538585895},{"spot":32,"iv":0.3,"value":11.595470029089716,"multiple":0.35137787966938533},{"spot":32,"iv":0.4,"value":35.546472303285185,"multiple":1.0771658273722784},{"spot":36,"iv":0.15,"value":13.57831011096211,"multiple":0.4114639427564276},{"spot":36,"iv":0.2,"value":31.89685084363214,"multiple":0.9665712376858224},{"spot":36,"iv":0.25,"value":54.36845333151492,"multiple":1.6475288888337856},{"spot":36,"iv":0.3,"value":79.2713455907597,"multiple":2.4021619875987787},{"spot":36,"iv":0.4,"value":133.05540467805486,"multiple":4.0319819599410565},{"spot":40,"iv":0.15,"value":174.44716145725005,"multiple":5.286277619916668},{"spot":40,"iv":0.2,"value":203.57704030951354,"multiple":6.16900122150041},{"spot":40,"iv":0.25,"value":233.93274883742487,"multiple":7.088871176891662},{"spot":40,"iv":0.3,"value":264.9118642599877,"multiple":8.027632250302657},{"spot":40,"iv":0.4,"value":327.7846987287745,"multiple":9.932869658447713}]},"volScenarios":{"rv30":0.12293895479908223,"iv_current":0.2522377396252471,"el_nino_analog":0.35,"food_inflation_2022":0.45},"dteJan27":242,"dbaHistory":[{"date":"2025-05-19","close":27.58},{"date":"2025-05-20","close":27.65},{"date":"2025-05-21","close":27.68},{"date":"2025-05-22","close":27.4},{"date":"2025-05-23","close":27.14},{"date":"2025-05-27","close":27.01},{"date":"2025-05-28","close":26.72},{"date":"2025-05-29","close":26.57},{"date":"2025-05-30","close":26.7},{"date":"2025-06-02","close":26.63},{"date":"2025-06-03","close":26.7},{"date":"2025-06-04","close":26.9},{"date":"2025-06-05","close":27.26},{"date":"2025-06-06","close":27.48},{"date":"2025-06-09","close":27.39},{"date":"2025-06-10","close":27.07},{"date":"2025-06-11","close":27.05},{"date":"2025-06-12","close":27.01},{"date":"2025-06-13","close":26.96},{"date":"2025-06-16","close":27.17},{"date":"2025-06-17","close":26.89},{"date":"2025-06-18","close":26.78},{"date":"2025-06-20","close":26.41},{"date":"2025-06-23","close":26.48},{"date":"2025-06-24","close":26.29},{"date":"2025-06-25","close":26.08},{"date":"2025-06-26","close":26.14},{"date":"2025-06-27","close":26.33},{"date":"2025-06-30","close":26.15},{"date":"2025-07-01","close":25.65},{"date":"2025-07-02","close":25.87},{"date":"2025-07-03","close":25.89},{"date":"2025-07-07","close":25.71},{"date":"2025-07-08","close":25.74},{"date":"2025-07-09","close":25.93},{"date":"2025-07-10","close":25.77},{"date":"2025-07-11","close":25.77},{"date":"2025-07-14","close":25.88},{"date":"2025-07-15","close":25.62},{"date":"2025-07-16","close":25.88},{"date":"2025-07-17","close":25.78},{"date":"2025-07-18","close":26.03},{"date":"2025-07-21","close":25.9},{"date":"2025-07-22","close":25.97},{"date":"2025-07-23","close":26.2},{"date":"2025-07-24","close":26.2},{"date":"2025-07-25","close":26.08},{"date":"2025-07-28","close":26.23},{"date":"2025-07-29","close":26.01},{"date":"2025-07-30","close":25.96},{"date":"2025-07-31","close":25.9},{"date":"2025-08-01","close":25.67},{"date":"2025-08-04","close":25.73},{"date":"2025-08-05","close":25.92},{"date":"2025-08-06","close":25.99},{"date":"2025-08-07","close":26.25},{"date":"2025-08-08","close":26.21},{"date":"2025-08-11","close":26.63},{"date":"2025-08-12","close":26.81},{"date":"2025-08-13","close":26.9},{"date":"2025-08-14","close":26.6},{"date":"2025-08-15","close":27.06},{"date":"2025-08-18","close":27.02},{"date":"2025-08-19","close":27.13},{"date":"2025-08-20","close":27.2},{"date":"2025-08-21","close":27.28},{"date":"2025-08-22","close":27.59},{"date":"2025-08-25","close":27.58},{"date":"2025-08-26","close":27.42},{"date":"2025-08-27","close":27.68},{"date":"2025-08-28","close":27.52},{"date":"2025-08-29","close":27.77},{"date":"2025-09-02","close":27.45},{"date":"2025-09-03","close":27.32},{"date":"2025-09-04","close":27.24},{"date":"2025-09-05","close":27.16},{"date":"2025-09-08","close":27.28},{"date":"2025-09-09","close":27.1},{"date":"2025-09-10","close":27.21},{"date":"2025-09-11","close":27.41},{"date":"2025-09-12","close":27.5},{"date":"2025-09-15","close":27.91},{"date":"2025-09-16","close":27.76},{"date":"2025-09-17","close":27.18},{"date":"2025-09-18","close":27.08},{"date":"2025-09-19","close":26.97},{"date":"2025-09-22","close":26.85},{"date":"2025-09-23","close":26.81},{"date":"2025-09-24","close":26.9},{"date":"2025-09-25","close":26.84},{"date":"2025-09-26","close":26.98},{"date":"2025-09-29","close":26.91},{"date":"2025-09-30","close":26.76},{"date":"2025-10-01","close":26.81},{"date":"2025-10-02","close":26.68},{"date":"2025-10-03","close":26.67},{"date":"2025-10-06","close":26.74},{"date":"2025-10-07","close":26.6},{"date":"2025-10-08","close":26.64},{"date":"2025-10-09","close":26.49},{"date":"2025-10-10","close":26.32},{"date":"2025-10-13","close":26.41},{"date":"2025-10-14","close":26.59},{"date":"2025-10-15","close":26.58},{"date":"2025-10-16","close":26.73},{"date":"2025-10-17","close":26.54},{"date":"2025-10-20","close":26.77},{"date":"2025-10-21","close":26.83},{"date":"2025-10-22","close":26.96},{"date":"2025-10-23","close":26.92},{"date":"2025-10-24","close":26.59},{"date":"2025-10-27","close":26.29},{"date":"2025-10-28","close":26.16},{"date":"2025-10-29","close":26.32},{"date":"2025-10-30","close":26.26},{"date":"2025-10-31","close":26.37},{"date":"2025-11-03","close":26.92},{"date":"2025-11-04","close":26.65},{"date":"2025-11-05","close":26.55},{"date":"2025-11-06","close":26.11},{"date":"2025-11-07","close":26.2},{"date":"2025-11-10","close":26.61},{"date":"2025-11-11","close":26.54},{"date":"2025-11-12","close":26.4},{"date":"2025-11-13","close":26.24},{"date":"2025-11-14","close":26.09},{"date":"2025-11-17","close":26.43},{"date":"2025-11-18","close":26.4},{"date":"2025-11-19","close":26.09},{"date":"2025-11-20","close":25.94},{"date":"2025-11-21","close":25.88},{"date":"2025-11-24","close":25.68},{"date":"2025-11-25","close":25.85},{"date":"2025-11-26","close":26.13},{"date":"2025-11-28","close":26.42},{"date":"2025-12-01","close":26.29},{"date":"2025-12-02","close":26.41},{"date":"2025-12-03","close":26.38},{"date":"2025-12-04","close":26.46},{"date":"2025-12-05","close":26.52},{"date":"2025-12-08","close":26.4},{"date":"2025-12-09","close":26.4},{"date":"2025-12-10","close":26.49},{"date":"2025-12-11","close":26.64},{"date":"2025-12-12","close":26.52},{"date":"2025-12-15","close":26.34},{"date":"2025-12-16","close":26.25},{"date":"2025-12-17","close":26.2},{"date":"2025-12-18","close":26.15},{"date":"2025-12-19","close":26.2},{"date":"2025-12-22","close":25.44},{"date":"2025-12-23","close":25.48},{"date":"2025-12-24","close":25.65},{"date":"2025-12-26","close":25.66},{"date":"2025-12-29","close":25.65},{"date":"2025-12-30","close":25.57},{"date":"2025-12-31","close":25.52},{"date":"2026-01-02","close":25.56},{"date":"2026-01-05","close":25.82},{"date":"2026-01-06","close":25.84},{"date":"2026-01-07","close":25.91},{"date":"2026-01-08","close":26.01},{"date":"2026-01-09","close":25.78},{"date":"2026-01-12","close":25.63},{"date":"2026-01-13","close":25.57},{"date":"2026-01-14","close":25.51},{"date":"2026-01-15","close":25.59},{"date":"2026-01-16","close":25.6},{"date":"2026-01-20","close":25.49},{"date":"2026-01-21","close":25.55},{"date":"2026-01-22","close":25.6},{"date":"2026-01-23","close":25.74},{"date":"2026-01-26","close":25.76},{"date":"2026-01-27","close":25.84},{"date":"2026-01-28","close":25.88},{"date":"2026-01-29","close":25.87},{"date":"2026-01-30","close":25.66},{"date":"2026-02-02","close":25.65},{"date":"2026-02-03","close":25.75},{"date":"2026-02-04","close":25.71},{"date":"2026-02-05","close":25.77},{"date":"2026-02-06","close":25.77},{"date":"2026-02-09","close":25.75},{"date":"2026-02-10","close":25.73},{"date":"2026-02-11","close":25.82},{"date":"2026-02-12","close":25.89},{"date":"2026-02-13","close":25.79},{"date":"2026-02-17","close":25.71},{"date":"2026-02-18","close":25.84},{"date":"2026-02-19","close":25.9},{"date":"2026-02-20","close":26.03},{"date":"2026-02-23","close":25.97},{"date":"2026-02-24","close":26.01},{"date":"2026-02-25","close":26.12},{"date":"2026-02-26","close":26.05},{"date":"2026-02-27","close":26.02},{"date":"2026-03-02","close":25.99},{"date":"2026-03-03","close":26.02},{"date":"2026-03-04","close":26.12},{"date":"2026-03-05","close":26.41},{"date":"2026-03-06","close":26.71},{"date":"2026-03-09","close":26.55},{"date":"2026-03-10","close":26.61},{"date":"2026-03-11","close":26.7},{"date":"2026-03-12","close":26.75},{"date":"2026-03-13","close":26.75},{"date":"2026-03-16","close":26.45},{"date":"2026-03-17","close":26.62},{"date":"2026-03-18","close":26.91},{"date":"2026-03-19","close":26.97},{"date":"2026-03-20","close":26.85},{"date":"2026-03-23","close":26.84},{"date":"2026-03-24","close":26.89},{"date":"2026-03-25","close":26.96},{"date":"2026-03-26","close":27.11},{"date":"2026-03-27","close":27.17},{"date":"2026-03-30","close":27.12},{"date":"2026-03-31","close":27.32},{"date":"2026-04-01","close":27.1},{"date":"2026-04-02","close":27.16},{"date":"2026-04-06","close":27.28},{"date":"2026-04-07","close":27.01},{"date":"2026-04-08","close":26.87},{"date":"2026-04-09","close":26.87},{"date":"2026-04-10","close":26.89},{"date":"2026-04-13","close":26.93},{"date":"2026-04-14","close":27.12},{"date":"2026-04-15","close":27.17},{"date":"2026-04-16","close":27.11},{"date":"2026-04-17","close":26.92},{"date":"2026-04-20","close":26.99},{"date":"2026-04-21","close":27.17},{"date":"2026-04-22","close":27.13},{"date":"2026-04-23","close":27.4},{"date":"2026-04-24","close":27.39},{"date":"2026-04-27","close":27.57},{"date":"2026-04-28","close":27.96},{"date":"2026-04-29","close":28.11},{"date":"2026-04-30","close":28.03},{"date":"2026-05-01","close":28.11},{"date":"2026-05-04","close":28.29},{"date":"2026-05-05","close":28.37},{"date":"2026-05-06","close":28.06},{"date":"2026-05-07","close":27.8},{"date":"2026-05-08","close":27.97},{"date":"2026-05-11","close":28.33},{"date":"2026-05-12","close":28.57},{"date":"2026-05-13","close":28.73},{"date":"2026-05-14","close":28.25},{"date":"2026-05-15","close":27.83}],"oct35IvHistory":[{"date":"2026-03-24","close":0.23,"iv":0.23891322326660158},{"date":"2026-03-25","close":0.25,"iv":0.24284157562255856},{"date":"2026-03-26","close":0.3,"iv":0.2514229278564453},{"date":"2026-03-27","close":0.3,"iv":0.25027874755859375},{"date":"2026-03-30","close":0.3,"iv":0.25394012451171877},{"date":"2026-03-31","close":0.24,"iv":0.23380255126953126},{"date":"2026-04-01","close":0.23,"iv":0.23826485443115233},{"date":"2026-04-06","close":0.27,"iv":0.24684620666503904},{"date":"2026-04-10","close":0.2,"iv":0.24219320678710937},{"date":"2026-04-20","close":0.2,"iv":0.2467699279785156},{"date":"2026-04-21","close":0.2,"iv":0.24211692810058594},{"date":"2026-04-22","close":0.22,"iv":0.25008805084228514},{"date":"2026-04-23","close":0.2,"iv":0.2367774200439453},{"date":"2026-04-28","close":0.3,"iv":0.25004991149902345},{"date":"2026-04-29","close":0.36,"iv":0.2598898620605469},{"date":"2026-04-30","close":0.32,"iv":0.2542070999145508},{"date":"2026-05-04","close":0.45,"iv":0.27743395996093745},{"date":"2026-05-06","close":0.34,"iv":0.2632079849243164},{"date":"2026-05-11","close":0.39,"iv":0.26992050933837886},{"date":"2026-05-12","close":0.5,"iv":0.2852525253295898},{"date":"2026-05-13","close":0.35,"iv":0.24890573120117188},{"date":"2026-05-15","close":0.35,"iv":0.2822013778686523}]};
+
+// -- Black-Scholes (call only) --
+function normCDF(x) {
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741,
+        a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x) / Math.sqrt(2);
+  const t = 1.0 / (1.0 + p * x);
+  const y = 1.0 - ((((a5*t+a4)*t+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+  return 0.5 * (1.0 + sign * y);
+}
+function bsCall(S, K, T, r, sigma) {
+  if (T <= 0) return Math.max(0, S - K);
+  if (sigma <= 0) return Math.max(0, S - K) * Math.exp(-r * T);
+  const sqrtT = Math.sqrt(T);
+  const d1 = (Math.log(S/K) + (r + 0.5*sigma*sigma)*T) / (sigma*sqrtT);
+  const d2 = d1 - sigma*sqrtT;
+  return S * normCDF(d1) - K * Math.exp(-r*T) * normCDF(d2);
+}
+
+const STRIKES = [
+  { key: 'jan27_35', label: 'Jan27 $35', strike: 35, mid: DATA.targets.jan27_35?.mid ?? 0.55, exp: '2027-01-15' },
+  { key: 'jan27_39', label: 'Jan27 $39', strike: 39, mid: DATA.targets.jan27_39?.mid ?? 0.33, exp: '2027-01-15' },
+  { key: 'jan27_33', label: 'Jan27 $33', strike: 33, mid: DATA.targets.jan27_33?.mid ?? 0.76, exp: '2027-01-15' },
+  { key: 'jan27_30', label: 'Jan27 $30', strike: 30, mid: DATA.targets.jan27_30?.mid ?? 1.60, exp: '2027-01-15' },
+  { key: 'oct26_35', label: 'Oct26 $35', strike: 35, mid: DATA.targets.oct26_35?.mid ?? 0.30, exp: '2026-10-16' },
+];
+
+const DTE_JAN27 = DATA.dteJan27;
+const DTE_OCT26 = Math.round((new Date('2026-10-16') - new Date(DATA.asOf)) / (24*60*60*1000));
+
+// -- top stats --
+document.getElementById('asOf').textContent = 'as of ' + DATA.asOf;
+document.getElementById('spot').textContent = '$' + DATA.spot.toFixed(2);
+document.getElementById('rv30').textContent = (DATA.realizedVol.rv30 * 100).toFixed(1) + '%';
+document.getElementById('iv35').textContent = (DATA.targets.jan27_35.iv * 100).toFixed(1) + '%';
+document.getElementById('ivrv').textContent = (DATA.targets.jan27_35.iv / DATA.realizedVol.rv30).toFixed(2) + 'x';
+
+// -- simulator --
+const slSpot = document.getElementById('sl-spot');
+const slIv = document.getElementById('sl-iv');
+const slMonths = document.getElementById('sl-months');
+const slRfr = document.getElementById('sl-rfr');
+
+function updateSim() {
+  const spot = +slSpot.value;
+  const iv = +slIv.value / 100;
+  const months = +slMonths.value;
+  const rfr = +slRfr.value / 100;
+  document.getElementById('v-spot').textContent = '$' + spot.toFixed(2);
+  document.getElementById('v-iv').textContent = (iv*100).toFixed(1) + '%';
+  document.getElementById('v-months').textContent = months.toFixed(1) + ' mo';
+  document.getElementById('v-rfr').textContent = (rfr*100).toFixed(1) + '%';
+
+  const rows = STRIKES.map(s => {
+    const baseDTE = s.exp === '2027-01-15' ? DTE_JAN27 : DTE_OCT26;
+    const remainingDays = Math.max(0, baseDTE - months * 30);
+    const T = remainingDays / 365;
+    const value = bsCall(spot, s.strike, T, rfr, iv);
+    const cost = s.mid;
+    const mult = value / cost;
+    const pnl = ((value - cost) / cost) * 100;
+    let verdict;
+    if (mult >= 5) verdict = '<span class="pill pill-green">🚀 ' + mult.toFixed(1) + 'x</span>';
+    else if (mult >= 2) verdict = '<span class="pill pill-yellow">' + mult.toFixed(1) + 'x</span>';
+    else if (mult >= 1) verdict = '<span class="pill pill-orange">' + mult.toFixed(2) + 'x</span>';
+    else verdict = '<span class="pill pill-red">' + (mult * 100).toFixed(0) + '%</span>';
+    return `<tr><td>${s.label}</td><td class="mono">$${cost.toFixed(2)}</td><td class="mono">$${value.toFixed(2)}</td><td class="mono">${mult.toFixed(2)}x</td><td class="mono ${pnl>=0?'green':'red'}">${pnl>=0?'+':''}${pnl.toFixed(0)}%</td><td>${verdict}</td></tr>`;
+  });
+
+  // Vertical 35/39
+  const v35 = bsCall(spot, 35, Math.max(0, DTE_JAN27 - months*30)/365, rfr, iv);
+  const v39 = bsCall(spot, 39, Math.max(0, DTE_JAN27 - months*30)/365, rfr, iv);
+  const vSpread = v35 - v39;
+  const vCost = STRIKES[0].mid - STRIKES[1].mid;
+  const vMult = vSpread / vCost;
+  const vPnl = ((vSpread - vCost) / vCost) * 100;
+  let vVerdict;
+  if (vMult >= 5) vVerdict = '<span class="pill pill-green">🚀 ' + vMult.toFixed(1) + 'x</span>';
+  else if (vMult >= 2) vVerdict = '<span class="pill pill-yellow">' + vMult.toFixed(1) + 'x</span>';
+  else if (vMult >= 1) vVerdict = '<span class="pill pill-orange">' + vMult.toFixed(2) + 'x</span>';
+  else vVerdict = '<span class="pill pill-red">' + (vMult * 100).toFixed(0) + '%</span>';
+  rows.push(`<tr><td>Vertical 35/39</td><td class="mono">$${vCost.toFixed(2)}</td><td class="mono">$${vSpread.toFixed(2)}</td><td class="mono">${vMult.toFixed(2)}x</td><td class="mono ${vPnl>=0?'green':'red'}">${vPnl>=0?'+':''}${vPnl.toFixed(0)}%</td><td>${vVerdict}</td></tr>`);
+
+  // Recommended mix (40 × $35 + 25 × $39, per $100 = scaled)
+  const mixCost = 40 * STRIKES[0].mid + 25 * STRIKES[1].mid;
+  const mixValue = 40 * v35 + 25 * v39;
+  const mixMult = mixValue / mixCost;
+  const mixPnl = ((mixValue - mixCost) / mixCost) * 100;
+  let mixVerdict;
+  if (mixMult >= 5) mixVerdict = '<span class="pill pill-green">🚀 ' + mixMult.toFixed(1) + 'x</span>';
+  else if (mixMult >= 2) mixVerdict = '<span class="pill pill-yellow">' + mixMult.toFixed(1) + 'x</span>';
+  else if (mixMult >= 1) mixVerdict = '<span class="pill pill-orange">' + mixMult.toFixed(2) + 'x</span>';
+  else mixVerdict = '<span class="pill pill-red">' + (mixMult * 100).toFixed(0) + '%</span>';
+  rows.push(`<tr class="highlight-row"><td><strong>Recommended mix</strong></td><td class="mono">$${mixCost.toFixed(2)}</td><td class="mono">$${mixValue.toFixed(2)}</td><td class="mono">${mixMult.toFixed(2)}x</td><td class="mono ${mixPnl>=0?'green':'red'}">${mixPnl>=0?'+':''}${mixPnl.toFixed(0)}%</td><td>${mixVerdict}</td></tr>`);
+
+  document.getElementById('sim-rows').innerHTML = rows.join('');
+  renderPayoff();
+}
+[slSpot, slIv, slMonths, slRfr].forEach(el => el.addEventListener('input', updateSim));
+
+// -- Canvas helpers --
+function hidpi(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  // Fallbacks: take parent width if rect is 0, default to 700×320
+  const cssW = rect.width || canvas.parentElement?.clientWidth || 700;
+  const cssH = rect.height || canvas.parentElement?.clientHeight || 320;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  canvas.style.width = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { ctx, w: cssW, h: cssH };
+}
+
+// -- Payoff chart at expiration --
+const PAYOFF_STRUCTS = {
+  jan27_35: { label: 'Jan27 $35', color: '#58a6ff', strike: 35, cost: STRIKES[0].mid },
+  jan27_39: { label: 'Jan27 $39', color: '#f85149', strike: 39, cost: STRIKES[1].mid },
+  vertical: { label: 'Vertical 35/39', color: '#d29922', verticalLower: 35, verticalUpper: 39, cost: STRIKES[0].mid - STRIKES[1].mid },
+  mix: { label: 'Recommended mix (40×$35 + 25×$39)', color: '#3fb950', mix: true },
+};
+
+let activePayoffs = new Set(['jan27_35', 'jan27_39', 'mix']);
+
+function renderPayoffToggles() {
+  const html = Object.entries(PAYOFF_STRUCTS).map(([k, s]) =>
+    `<button class="toggle ${activePayoffs.has(k)?'active':''}" data-key="${k}" style="${activePayoffs.has(k)?'background:'+s.color+'; border-color:'+s.color+';':''}">${s.label}</button>`
+  ).join('');
+  const el = document.getElementById('payoff-toggles');
+  el.innerHTML = html;
+  el.querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => {
+      const k = b.dataset.key;
+      if (activePayoffs.has(k)) activePayoffs.delete(k);
+      else activePayoffs.add(k);
+      renderPayoffToggles();
+      renderPayoff();
+    });
+  });
+}
+renderPayoffToggles();
+
+function renderPayoff() {
+  const canvas = document.getElementById('payoffChart');
+  const { ctx, w, h } = hidpi(canvas);
+  ctx.clearRect(0, 0, w, h);
+
+  const padL = 56, padR = 16, padT = 16, padB = 36;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  const xMin = 22, xMax = 55;
+  const xs = [];
+  for (let i = 0; i <= 100; i++) xs.push(xMin + (xMax - xMin) * i / 100);
+
+  function payoff(struct, spot) {
+    if (struct.mix) {
+      const v35 = Math.max(0, spot - 35);
+      const v39 = Math.max(0, spot - 39);
+      const totalValue = 40 * v35 * 100 + 25 * v39 * 100;
+      const totalCost = 40 * STRIKES[0].mid * 100 + 25 * STRIKES[1].mid * 100;
+      return ((totalValue - totalCost) / totalCost) * 100;
+    }
+    if (struct.verticalLower != null) {
+      const v = Math.max(0, Math.min(spot, struct.verticalUpper) - struct.verticalLower);
+      return ((v - struct.cost) / struct.cost) * 100;
+    }
+    const v = Math.max(0, spot - struct.strike);
+    return ((v - struct.cost) / struct.cost) * 100;
+  }
+
+  // Collect series & y range
+  const active = [...activePayoffs];
+  let yMin = -110, yMax = 110;
+  for (const k of active) {
+    const struct = PAYOFF_STRUCTS[k];
+    for (const x of xs) {
+      const y = payoff(struct, x);
+      if (y > yMax) yMax = y;
+      if (y < yMin) yMin = y;
+    }
+  }
+  // Pad y range
+  yMax = Math.ceil(yMax / 100) * 100;
+  yMin = Math.min(yMin, -100);
+
+  function sx(x) { return padL + ((x - xMin) / (xMax - xMin)) * plotW; }
+  function sy(y) { return padT + (1 - (y - yMin) / (yMax - yMin)) * plotH; }
+
+  // Grid
+  ctx.strokeStyle = '#30363d';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '11px ui-monospace';
+  for (let x = 25; x <= xMax; x += 5) {
+    ctx.beginPath();
+    ctx.moveTo(sx(x), padT);
+    ctx.lineTo(sx(x), padT + plotH);
+    ctx.stroke();
+    ctx.fillText('$' + x, sx(x) - 8, h - 12);
+  }
+  const yTicks = 6;
+  for (let i = 0; i <= yTicks; i++) {
+    const y = yMin + (yMax - yMin) * i / yTicks;
+    ctx.beginPath();
+    ctx.moveTo(padL, sy(y));
+    ctx.lineTo(padL + plotW, sy(y));
+    ctx.stroke();
+    ctx.fillText((y >= 0 ? '+' : '') + y.toFixed(0) + '%', 8, sy(y) + 4);
+  }
+
+  // Zero / breakeven line
+  ctx.strokeStyle = '#8b949e';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(padL, sy(0));
+  ctx.lineTo(padL + plotW, sy(0));
+  ctx.stroke();
+
+  // Spot marker
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(sx(DATA.spot), padT);
+  ctx.lineTo(sx(DATA.spot), padT + plotH);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#58a6ff';
+  ctx.fillText('spot $' + DATA.spot.toFixed(2), sx(DATA.spot) + 4, padT + 12);
+
+  // Series
+  ctx.lineWidth = 2.5;
+  for (const k of active) {
+    const struct = PAYOFF_STRUCTS[k];
+    ctx.strokeStyle = struct.color;
+    ctx.beginPath();
+    for (let i = 0; i < xs.length; i++) {
+      const x = xs[i];
+      const y = payoff(struct, x);
+      const px = sx(x), py = sy(y);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+}
+
+// -- Skew chart --
+function renderSkew() {
+  const canvas = document.getElementById('skewChart');
+  const { ctx, w, h } = hidpi(canvas);
+  ctx.clearRect(0, 0, w, h);
+
+  const padL = 48, padR = 16, padT = 16, padB = 36;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  const chain = DATA.chainSnapshot.jan27.filter(q => q.iv != null);
+  const strikes = chain.map(q => q.strike);
+  const ivs = chain.map(q => q.iv * 100);
+  const xMin = Math.min(...strikes), xMax = Math.max(...strikes);
+  const yMin = Math.floor(Math.min(...ivs)) - 1;
+  const yMax = Math.ceil(Math.max(...ivs)) + 1;
+
+  function sx(x) { return padL + ((x - xMin) / (xMax - xMin)) * plotW; }
+  function sy(y) { return padT + (1 - (y - yMin) / (yMax - yMin)) * plotH; }
+
+  ctx.strokeStyle = '#30363d';
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '11px ui-monospace';
+  for (const x of strikes) {
+    ctx.beginPath(); ctx.moveTo(sx(x), padT); ctx.lineTo(sx(x), padT + plotH); ctx.stroke();
+    ctx.fillText('$' + x, sx(x) - 8, h - 12);
+  }
+  for (let y = yMin; y <= yMax; y += 1) {
+    ctx.beginPath(); ctx.moveTo(padL, sy(y)); ctx.lineTo(padL + plotW, sy(y)); ctx.stroke();
+    if (y % 2 === 0) ctx.fillText(y.toFixed(0) + '%', 8, sy(y) + 4);
+  }
+
+  // Skew line
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < chain.length; i++) {
+    const px = sx(strikes[i]), py = sy(ivs[i]);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#58a6ff';
+  for (let i = 0; i < chain.length; i++) {
+    ctx.beginPath(); ctx.arc(sx(strikes[i]), sy(ivs[i]), 3, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// -- DBA price chart --
+function renderDba() {
+  const canvas = document.getElementById('dbaChart');
+  const { ctx, w, h } = hidpi(canvas);
+  ctx.clearRect(0, 0, w, h);
+  const data = DATA.dbaHistory;
+  if (!data.length) return;
+  const padL = 48, padR = 16, padT = 16, padB = 36;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const closes = data.map(d => d.close);
+  const yMin = Math.floor(Math.min(...closes) * 10) / 10 - 0.2;
+  const yMax = Math.ceil(Math.max(...closes) * 10) / 10 + 0.2;
+  function sx(i) { return padL + (i / (data.length - 1)) * plotW; }
+  function sy(y) { return padT + (1 - (y - yMin) / (yMax - yMin)) * plotH; }
+  ctx.strokeStyle = '#30363d';
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '11px ui-monospace';
+  const ySteps = 5;
+  for (let i = 0; i <= ySteps; i++) {
+    const y = yMin + (yMax - yMin) * i / ySteps;
+    ctx.beginPath(); ctx.moveTo(padL, sy(y)); ctx.lineTo(padL + plotW, sy(y)); ctx.stroke();
+    ctx.fillText('$' + y.toFixed(2), 8, sy(y) + 4);
+  }
+  // X ticks: 6 evenly spaced
+  for (let i = 0; i < 6; i++) {
+    const idx = Math.round((data.length - 1) * i / 5);
+    ctx.fillText(data[idx].date.slice(2), sx(idx) - 18, h - 12);
+  }
+  // Line
+  ctx.strokeStyle = '#3fb950';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const px = sx(i), py = sy(data[i].close);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+}
+
+// -- Probability table --
+const probRows = Object.entries(DATA.probAbove).map(([name, ps]) => {
+  const vol = DATA.volScenarios[name];
+  const label = name + ' (' + (vol*100).toFixed(0) + '%)';
+  function p(t) { return ps[t] != null ? (ps[t]*100).toFixed(1) + '%' : '—'; }
+  return `<tr><td>${label}</td><td class="mono">${p(30)}</td><td class="mono">${p(33)}</td><td class="mono">${p(35)}</td><td class="mono">${p(39)}</td><td class="mono">${p(45)}</td><td class="mono">${p(50)}</td></tr>`;
+}).join('');
+document.getElementById('prob-rows').innerHTML = probRows;
+
+// -- EV table --
+const evRows = Object.entries(DATA.evAnalysis).map(([k, vals]) => {
+  function pill(v) {
+    let cls = 'pill-red';
+    if (v >= 3) cls = 'pill-green';
+    else if (v >= 1.5) cls = 'pill-yellow';
+    else if (v >= 1) cls = 'pill-orange';
+    return `<span class="pill ${cls}">${v.toFixed(2)}x</span>`;
+  }
+  return `<tr><td>${k.replace('jan27_', 'Jan27 $')}</td><td>${pill(vals.rv30)}</td><td>${pill(vals.iv_current)}</td><td>${pill(vals.el_nino_analog)}</td><td>${pill(vals.food_inflation_2022)}</td></tr>`;
+}).join('');
+document.getElementById('ev-rows').innerHTML = evRows;
+
+// -- Convexity table --
+const convRows = DATA.convexityRanking.map(c =>
+  `<tr><td>${c.label}</td><td class="mono">$${c.mid.toFixed(2)}</td><td class="mono">${c.gammaPerDollar.toFixed(4)}</td><td class="mono">${c.vegaPerDollar.toFixed(4)}</td></tr>`
+).join('');
+document.getElementById('conv-rows').innerHTML = convRows;
+
+// -- Chain table --
+const chainRows = DATA.chainSnapshot.jan27.map(q => {
+  const be = q.mid != null ? q.strike + q.mid : null;
+  const highlight = q.strike === 35 || q.strike === 39 ? ' class="highlight-row"' : '';
+  return `<tr${highlight}><td><strong>$${q.strike}</strong></td><td class="mono">$${(q.mid??0).toFixed(2)}</td><td class="mono">${((q.iv??0)*100).toFixed(1)}%</td><td class="mono">${(q.delta??0).toFixed(3)}</td><td class="mono">${(q.gamma??0).toFixed(4)}</td><td class="mono">${(q.theta??0).toFixed(4)}</td><td class="mono">${(q.vega??0).toFixed(3)}</td><td class="mono">${q.open_interest??0}</td><td class="mono">${q.volume??0}</td><td class="mono">$${be?be.toFixed(2):'—'}</td></tr>`;
+}).join('');
+document.getElementById('chain-rows').innerHTML = chainRows;
+
+// -- Recommended structure payoff --
+const recRows = [30, 35, 40, 45, 50].map(spot => {
+  const v35 = Math.max(0, spot - 35);
+  const v39 = Math.max(0, spot - 39);
+  const totalValue = 40 * v35 * 100 + 25 * v39 * 100;
+  const totalCost = 40 * STRIKES[0].mid * 100 + 25 * STRIKES[1].mid * 100;
+  const mult = totalValue / totalCost;
+  return `<tr><td class="mono">$${spot}</td><td class="mono">$${totalValue.toFixed(0)}</td><td class="mono">${mult.toFixed(2)}x</td></tr>`;
+}).join('');
+document.getElementById('rec-rows').innerHTML = recRows;
+
+// Initial renders — defer to next frame so layout settles
+function renderAll() { renderPayoff(); renderSkew(); renderDba(); }
+updateSim();
+requestAnimationFrame(() => requestAnimationFrame(renderAll));
+window.addEventListener('resize', renderAll);
+window.addEventListener('load', () => requestAnimationFrame(renderAll));
+</script>
+</body>
+</html>
