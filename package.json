@@ -1,0 +1,21 @@
+{
+  "name": "el-nino-options",
+  "module": "src/analyze.ts",
+  "type": "module",
+  "scripts": {
+    "analyze": "bun run src/analyze.ts",
+    "fetch-chain": "bun run src/fetch-chain.ts",
+    "iv-history": "bun run src/iv-history.ts",
+    "report": "bun run src/report.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  },
+  "packageManager": "bun@1.2.13"
+}
