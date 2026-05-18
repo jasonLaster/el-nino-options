@@ -4,6 +4,22 @@ _A first-principles read on the science, geopolitics, and economics. Skeptical o
 
 ---
 
+## 🔔 UPDATE — 2026-05-18: four of five primary signals confirm thesis
+
+The five sources flagged in Section 8 as "the data points to track" have all printed since this report was first drafted. Four of five align with the thesis. **The thesis is no longer speculative; it is the consensus.** The trade implications shift accordingly — see [Section 7-revised](#7-revised--what-changes-now-that-the-thesis-is-consensus) at the bottom.
+
+| Source | As-of | Reading | Status |
+|---|---|---|---|
+| NOAA CPC ENSO Discussion | 2026-05-14 | **El Niño Watch active.** Niño 3.4 at +0.4°C. P(El Niño) = 82% for MJJ 2026, **96% for DJF 2026-27**. No single strength category > 37%. | 🟢 confirms |
+| IRI / CPC Forecast Plumes | 2026-04-20 | Multimodel ensemble = 88-94% El Niño through end of 2026. **Subsurface Niño 1+2 at +1.8°C** — the load gun is cocked. Spring predictability barrier caveat applies. | 🟢 confirms |
+| **IMD Long Range Monsoon** | **2026-04-13** | **Below normal at 92% of LPA. P(deficient) 35% + P(below normal) 31% = 66% shortfall risk.** First below-normal forecast in 3 years. El Niño cited as primary driver. | 🟢 **trigger pulled** |
+| USDA WASDE (May 2026) | 2026-05-12 | US 2026/27: wheat -18% YoY ending stocks (762M bu), corn -6% production (16.0B bu), soy +173M bu. Stocks-to-use on corn at 12.1%. Wheat printed limit-up on release. | 🟢 confirms |
+| MPOB Palm Oil (April 2026) | 2026-05-11 | Production +18.4% MoM (seasonal), stocks +1.7% to 2.30M tons, **exports -14.3% MoM**. Stock build despite expected El Niño concerns reflects demand-side weakness. | 🟡 mixed |
+
+**The IMD print is the punch list's #1 item.** The deep-dive's original Section 8 said: *"if May-June 2026 monsoon forecasts trend below 90% of long-term mean, that is the trigger."* The forecast came in at 92% — just above that line but with 35% probability of deficient (< 90%). The late-May second-stage IMD update is the next high-information event.
+
+---
+
 ## 0. The bottom line, up front
 
 The viral tweet is **directionally correct, factually loose, and analytically incomplete**. Strip out the rhetoric and you're left with three durable claims worth trading on:
@@ -393,6 +409,65 @@ The most defensible thesis statement, stripped of doom rhetoric:
 > _An El Niño event with subsurface load currently in place is more likely than not to materialize as Strong-or-greater by Q4 2026. Tropical perennial crops (cocoa, coffee, palm oil) have 6-24 month lag exposures that are structurally underpriced in vol surfaces. Fertilizer disruption from Middle East tensions adds an independent supply-side compounder for 2026-27 grain harvests. The trade architecture is a basket of OTM calls on individual soft commodities and fertilizer equities, sized at 1-3% of portfolio total premium, with predetermined exit and redeploy plans into ag equipment and food processors on the post-spike correction._
 
 That's the trade. It's not 1877. It's not the apocalypse. It's a $10-30k premium burn for a 5-30x asymmetric payoff against a thesis that the curve refuses to price.
+
+---
+
+## 7-revised — What changes now that the thesis is consensus
+
+The original deep-dive (drafted earlier this session) treated the El Niño thesis as speculative — "2-in-3 NOAA odds, IMD hasn't called yet, fertilizer claim unverified." As of 2026-05-18 that framing is obsolete.
+
+### What's already priced
+
+- **Wheat went limit-up on the WASDE release** (May 12). The KCBT and CBOT wheat curves now embed a meaningful crop-loss expectation. Buying wheat upside calls today is buying *after* the catalyst — Ackman's textbook anti-pattern.
+- **NOAA's 96% DJF probability** means ENSO-conditional vol is priced into the seasonality across multiple ag commodities. The "the market won't price it" element of the Ackman framework has eroded materially.
+- **IMD's 92% LPA call** is consensus. Indian wheat, sugar, and rice markets have spent April-May absorbing that.
+
+### What's still mispriced (the remaining convexity)
+
+1. **Tropical perennials with 6-24mo lag (cocoa, coffee, palm oil)**. The 2027 yield-damage horizon is too distant for spot futures to embed. Cocoa already had its 2024 run; if El Niño materializes Super by Q4, the 2027-28 West African crop is the *second leg*. Coffee robusta is similar via Vietnam.
+2. **Palm oil specifically**. The MPOB April print shows stocks *rising* — the El Niño yield signal hasn't yet shown up because palm fruit takes 18-24 months to express tree stress. The supply contraction won't appear in MPOB monthly data until late-2026 / early-2027. **The curve has not even started pricing this.**
+3. **Indian rice export ban tail.** If the IMD's late-May second-stage update revises *below* the April call, an Indian rice export ban becomes the modal scenario. Rice is the most ban-prone of the major grains and has no good ETF — but the *adjacent* markets (wheat, sugar, palm oil substitutes) move sharply when India bans.
+4. **Fertilizer equities into 2027**. The deep-dive's Section 4 already noted fertilizer is decided in spring T but expressed in harvest T+1. A 2026 short-application of urea → 2027 yield drag *on top of* El Niño teleconnection. The fertilizer equity calls (MOS, CF, NTR) are 2027 plays that haven't priced the compound.
+5. **Food-margin compression at consumer-staple companies**. HSY, MDLZ, KO, GIS, CPB — these are exposed to specific input cost spikes (cocoa, sugar, wheat) with no easy pass-through. Long-dated puts on these still trade at modest vol because the 2024 cocoa rally was treated as one-off. Margin compression Round 2 is not priced.
+
+### What's now contraindicated
+
+- **Long broad ag ETFs (DBA, RJA, DJP)** — the grains weight is now post-news. The convex part of the basket has already moved.
+- **Long wheat upside calls (W, WEAT)** — chasing the limit-up move.
+- **Long corn upside calls outside of a Brazil-Safrinha-specific bet** — El Niño actually helps US corn belt; the WASDE production cut was area-driven, not weather-driven.
+
+### Updated trade architecture (revised from Section 6)
+
+Cheaper to the new state-of-knowledge:
+
+| Tier | Old recommendation | Revised — post 2026-05-18 |
+|---|---|---|
+| 1 | Cocoa, coffee, sugar OTM calls | **Cocoa + Robusta coffee OTM calls — 2027 expiries.** Drop sugar (less convex now). |
+| 2 | MOS, NTR, CF Jan 2027/28 OTM | **MOS + CF Jan 2028 OTM calls.** Same trade, but specifically target the 2027 fertilizer→yield compound. |
+| 3 | HSY, MDLZ, KR long-dated puts | **HSY and MDLZ Jan 2027 OTM puts.** Cocoa-driven food margin compression. Add CPB and GIS if wheat stays bid. |
+| 4 | EGX short / PKR NDF | Same (institutional only). Adds: short Pakistan and Egypt sovereign credit if monsoon revises down. |
+| 5 | Post-payoff: DE, AGCO, ADM | Same redeploy list. Possibly add BG (Bunge) given the soy +173M bu signal. |
+| **NEW** | — | **Palm oil upside, 12-24 month expiry.** Bursa Malaysia CPO calls or proxy via soybean oil (BO) calls. The MPOB April print *should* be embarrassing in retrospect — stocks rising while yield signal hasn't hit yet. |
+
+### Updated kill conditions
+
+- IMD's **late-May second-stage update** revises monsoon forecast **above 96% LPA** → degrade thesis intensity by half
+- ONI prints **negative for two consecutive monthly readings** by August 2026 → exit
+- China announces strategic grain reserve releases > 10M tons → close grain-adjacent positions
+- Hormuz tensions de-escalate (Iran nuclear deal or similar) → close fertilizer equity longs
+
+### Updated calendar — the next 90 days that actually matter
+
+| Date | Event | What to watch for |
+|---|---|---|
+| 2026-06-11 | NOAA CPC ENSO Discussion (June) | Strength category probabilities tightening; first "Super" reading on the table |
+| 2026-06-12 | USDA WASDE (June) | First post-planting US corn/soy production estimate; confirms or revises May |
+| 2026-late-May | IMD Second-Stage Monsoon Update | Revision below 90% LPA = thesis amplifier |
+| 2026-06-10 | MPOB May 2026 stats | First month where El Niño SST signal would start showing in palm yields |
+| 2026-07-09 | NOAA CPC ENSO Discussion (July) | Spring barrier ends; forecast confidence steps up materially |
+| 2026-08-13 | NOAA CPC + monthly USDA grain stocks | Post-pollination US corn yield read |
+
+The window for entering positions at "still-cheap" pricing is *narrowing fast*. The June 11-12 data is the next inflection.
 
 ---
 

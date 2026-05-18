@@ -2,6 +2,25 @@
 
 _As of 2026-05-18 — independent run, sibling repo to options-rr._
 
+> ## ⚠️ Update — 2026-05-18 reading after live signals confirmed
+>
+> The primary sources flagged in the companion [el-nino-deep-dive.md](el-nino-deep-dive.md) all printed since first draft:
+>
+> - **NOAA CPC (May 14):** El Niño Watch · 96% probability for DJF 2026-27
+> - **IMD (Apr 13):** Indian monsoon **below normal at 92% LPA** — *the trigger pulled*
+> - **USDA WASDE (May 12):** Wheat -18% YoY ending stocks; wheat **limit-up on release**
+> - **IRI plumes (Apr 20):** Subsurface Niño 1+2 at +1.8°C — load gun cocked
+> - **MPOB (Apr 2026):** Stocks rising despite expected El Niño concerns — *yield signal hasn't hit palm yet*
+>
+> **What this changes for the DBA trade:**
+>
+> 1. **The El Niño thesis is now consensus, not speculation.** Much of the "cheap" convexity has already compressed in the obvious markets (wheat).
+> 2. **DBA's 25% IV at the $35 strike re-reads as 'fair' rather than 'rich.'** It reflects the new state of knowledge, not over-bidding. The IV-rank framing (94th percentile of a 22d window) overstates richness because that window predates the IMD and WASDE prints.
+> 3. **The convex tail still lives outside DBA** — in tropical perennials (cocoa, coffee, palm oil) and single-stock fertilizer / food-margin plays. DBA is too grain-heavy; grains have largely moved.
+> 4. **The DBA structure remains directionally right but with shorter half-life.** Enter on weakness, don't average, take 50% off at 3x, reassess by Sep 2026. The June 11-12 NOAA + WASDE prints are the next inflection.
+>
+> See [el-nino-deep-dive.md § 7-revised](el-nino-deep-dive.md#7-revised--what-changes-now-that-the-thesis-is-consensus) for the updated trade architecture across the whole opportunity set.
+
 ## TL;DR — Recommendation
 
 > **Best speculative trade:** **Jan 2027 $35 calls at ≤ $0.55 mid**, sized to ~$1,500–$2,500 of risk, optionally pair with a **10–20% tail allocation to Jan 2027 $39 calls** to chase the food-inflation tail.
@@ -95,7 +114,7 @@ Reference ag-vol regimes:
 
 Current IV is roughly in line with a *mild* La Niña / drought regime — not pricing a 2022-style food shock.
 
-**Verdict by strike:**
+**Verdict by strike (original draft):**
 
 | Strike | Cheap / Fair / Expensive | Rationale |
 |---|---|---|
@@ -104,6 +123,16 @@ Current IV is roughly in line with a *mild* La Niña / drought regime — not pr
 | Jan27 $35 | RICH | 25% IV, ~2x RV, sitting near IV-rank highs |
 | Jan27 $38-39 | RICH-TO-EXPENSIVE | 28-30% IV, full skew tax |
 | Oct26 $35 | RICH (but cheap in absolute dollars) | 28% IV, but only ~10 months until expiry |
+
+**Verdict by strike (revised after 2026-05-18 live signals):**
+
+| Strike | Re-rated | Rationale |
+|---|---|---|
+| Jan27 $30 | FAIR-CHEAP | 23% IV underprices the new state-of-knowledge. The market hasn't fully repriced the lower strikes for confirmed El Niño + 92% LPA monsoon. |
+| Jan27 $33 | FAIR | Now the consensus strike; IV is reasonable, OI 930 reflects the trade is being put on by others. |
+| Jan27 $35 | FAIR | The 25% IV → 2.05× RV ratio looked rich in isolation; against confirmed thesis it's appropriate. Not cheap, not chasing. |
+| Jan27 $38-39 | FAIR-RICH | The call skew tax is real but the 2022-style food-inflation tail is now a higher-probability scenario than the original draft assumed. Still skip unless seeking pure tail. |
+| Oct26 $35 | RICH | Convex per-dollar, but expires before the late-2026 ENSO peak. The 10-month duration is now the wrong window. |
 
 ## 4. Scenario Analysis @ Jan 2027 Expiration
 
