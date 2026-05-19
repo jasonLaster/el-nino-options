@@ -1,25 +1,20 @@
 /**
- * Pull option chains for the cross-thesis target basket.
+ * Pull option chains for the cross-thesis target basket using the Massive API
+ * bulk snapshot endpoint (one call per ticker → entire chain with greeks).
  *
  * Targets organized by tier (matches el-nino-deep-dive § 7-revised):
  *   tier_2_fertilizer: long calls — MOS, CF, NTR
  *   tier_3_food_margin: long puts — HSY, MDLZ, CPB, GIS
- *   tier_1_soft_commodity_etfs: long calls — JO (coffee), CANE (sugar), SOYB (palm proxy)
- *   tier_5_redeploy: long calls (post-payoff entry) — DE, CTVA, BG
- *
- * For each ticker we cache:
- *   - spot
- *   - 1-year underlying history (for RV)
- *   - Jan 2027 chain (full strike range around 0.05-0.35 delta)
+ *   tier_1_soft_commodity_etfs: long calls — JO (coffee), CANE (sugar), SOYB, WEAT, CORN
+ *   tier_5_redeploy: long calls — DE, CTVA, BG, ADM
  */
 
 import { db } from "./cache.ts";
 import {
-  listOptionContracts,
-  getOptionSnapshot,
-  getEquitySnapshot,
-  getAggregates,
-} from "./polygon.ts";
+  getOptionsChainSnapshot,
+  getEquityLastPrice,
+  getAggregatesMassive,
+} from "./massive.ts";
 
 interface Target {
   ticker: string;
@@ -30,55 +25,30 @@ interface Target {
 
 const TARGETS: Target[] = [
   // Fertilizer equity calls
-  { ticker: "MOS", side: "calls", tier: "tier_2_fertilizer", thesis: "Phosphate + potash beta to ag price spike + 2026/27 demand" },
-  { ticker: "CF", side: "calls", tier: "tier_2_fertilizer", thesis: "Pure-play nitrogen/urea; direct Hormuz beneficiary" },
-  { ticker: "NTR", side: "calls", tier: "tier_2_fertilizer", thesis: "Diversified all-nutrient fertilizer + retail" },
-
+  { ticker: "MOS", side: "calls", tier: "tier_2_fertilizer", thesis: "Phosphate + potash beta" },
+  { ticker: "CF", side: "calls", tier: "tier_2_fertilizer", thesis: "Pure-play nitrogen/urea" },
+  { ticker: "NTR", side: "calls", tier: "tier_2_fertilizer", thesis: "Diversified all-nutrient" },
   // Food-margin compression puts
-  { ticker: "HSY", side: "puts", tier: "tier_3_food_margin", thesis: "Cocoa-driven margin compression Round 2" },
-  { ticker: "MDLZ", side: "puts", tier: "tier_3_food_margin", thesis: "Cocoa + sugar + wheat input compression" },
-  { ticker: "GIS", side: "puts", tier: "tier_3_food_margin", thesis: "Cereal + wheat + sugar input compression" },
-  { ticker: "CPB", side: "puts", tier: "tier_3_food_margin", thesis: "Soup/snacks + wheat input compression" },
-
-  // Soft commodity ETFs/ETNs as cleaner-than-DBA proxies
-  { ticker: "JO", side: "calls", tier: "tier_1_soft_commodity", thesis: "Coffee (mostly Arabica) — Vietnam/Brazil drought sensitivity" },
-  { ticker: "CANE", side: "calls", tier: "tier_1_soft_commodity", thesis: "Sugar #11 — Brazil center-south + India monsoon" },
-  { ticker: "SOYB", side: "calls", tier: "tier_1_soft_commodity", thesis: "Soybean — palm oil substitute proxy" },
-  { ticker: "WEAT", side: "calls", tier: "tier_1_soft_commodity", thesis: "Wheat — already moved post-WASDE; check residual convexity" },
-  { ticker: "CORN", side: "calls", tier: "tier_1_soft_commodity", thesis: "Corn — US area + yield cut from WASDE" },
-
-  // Post-payoff redeploy (for completeness; we may not size into these yet)
-  { ticker: "DE", side: "calls", tier: "tier_5_redeploy", thesis: "Farm equipment — operating leverage to farm income" },
-  { ticker: "CTVA", side: "calls", tier: "tier_5_redeploy", thesis: "Corteva seeds + crop protection" },
-  { ticker: "BG", side: "calls", tier: "tier_5_redeploy", thesis: "Bunge oilseeds processor — palm/soy crush margin" },
+  { ticker: "HSY", side: "puts", tier: "tier_3_food_margin", thesis: "Cocoa margin compression" },
+  { ticker: "MDLZ", side: "puts", tier: "tier_3_food_margin", thesis: "Cocoa + sugar + wheat" },
+  { ticker: "GIS", side: "puts", tier: "tier_3_food_margin", thesis: "Cereal + wheat + sugar" },
+  { ticker: "CPB", side: "puts", tier: "tier_3_food_margin", thesis: "Soup + wheat" },
+  // Soft commodity ETFs
+  { ticker: "JO", side: "calls", tier: "tier_1_soft_commodity", thesis: "Coffee (Vietnam/Brazil)" },
+  { ticker: "CANE", side: "calls", tier: "tier_1_soft_commodity", thesis: "Sugar #11" },
+  { ticker: "SOYB", side: "calls", tier: "tier_1_soft_commodity", thesis: "Soybean (palm proxy)" },
+  { ticker: "WEAT", side: "calls", tier: "tier_1_soft_commodity", thesis: "Wheat (post-WASDE)" },
+  { ticker: "CORN", side: "calls", tier: "tier_1_soft_commodity", thesis: "Corn (WASDE area+yield cut)" },
+  // Post-payoff redeploy (will fetch for completeness)
+  { ticker: "DE", side: "calls", tier: "tier_5_redeploy", thesis: "Farm equipment" },
+  { ticker: "CTVA", side: "calls", tier: "tier_5_redeploy", thesis: "Seeds + crop chem" },
+  { ticker: "BG", side: "calls", tier: "tier_5_redeploy", thesis: "Oilseeds processor" },
+  { ticker: "ADM", side: "calls", tier: "tier_5_redeploy", thesis: "Grain processor" },
 ];
 
 const EXPIRATION = "2027-01-15";
 
-interface MultiQuoteRow {
-  ticker: string;
-  underlying: string;
-  side: "calls" | "puts";
-  tier: string;
-  expiration: string;
-  strike: number;
-  contract_type: string;
-  bid: number | null;
-  ask: number | null;
-  mid: number | null;
-  last: number | null;
-  iv: number | null;
-  delta: number | null;
-  gamma: number | null;
-  theta: number | null;
-  vega: number | null;
-  open_interest: number | null;
-  volume: number | null;
-  underlying_price: number | null;
-  fetched_at: number;
-}
-
-// Extend schema to include side + tier
+// Extend schema if not present (idempotent)
 db.exec(`
   CREATE TABLE IF NOT EXISTS multi_quotes (
     ticker TEXT NOT NULL,
@@ -100,39 +70,36 @@ db.exec(`
 async function fetchOne(t: Target): Promise<void> {
   console.log(`\n=== ${t.ticker} (${t.side}, ${t.tier}) ===`);
 
-  // 1. Spot
-  let spot = await getEquitySnapshot(t.ticker);
+  // 1. Spot price
+  let spot = await getEquityLastPrice(t.ticker);
   if (spot == null) {
     const today = new Date().toISOString().slice(0, 10);
-    const fiveAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const bars = await getAggregates(t.ticker, fiveAgo, today);
+    const fiveAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const bars = await getAggregatesMassive(t.ticker, fiveAgo, today);
     spot = bars.at(-1)?.c ?? null;
   }
-  console.log(`  spot: ${spot}`);
   if (spot == null) {
     console.warn(`  ✗ skip — no spot price`);
     return;
   }
+  console.log(`  spot: $${spot}`);
 
-  // 2. Skipping underlying history (rate-limit-heavy on free tier).
-  //    Compute RV from cached data later or use ATM IV as the only vol input.
-
-  // 3. Options chain — both contract types if we wanted, but we know which side we want
+  // 2. Bulk chain snapshot — one call returns full chain w/ greeks
   const contractType = t.side === "calls" ? "call" : "put";
-  const contracts = await listOptionContracts(t.ticker, EXPIRATION, contractType);
-  console.log(`  ${contracts.length} total ${contractType} contracts at ${EXPIRATION}`);
-
-  // Filter to interesting strike range: 10% ITM to 50% OTM for calls, 50% OTM to 10% ITM for puts
-  const filtered = contracts.filter((c) => {
-    if (t.side === "calls") {
-      return c.strike_price >= spot * 0.9 && c.strike_price <= spot * 1.5;
-    } else {
-      return c.strike_price <= spot * 1.1 && c.strike_price >= spot * 0.5;
-    }
+  const strikeMin = t.side === "calls" ? spot * 0.9 : spot * 0.5;
+  const strikeMax = t.side === "calls" ? spot * 1.6 : spot * 1.1;
+  const chain = await getOptionsChainSnapshot(t.ticker, {
+    expiration: EXPIRATION,
+    contractType,
+    strikeMin,
+    strikeMax,
+    limit: 250,
   });
-  console.log(`  ${filtered.length} contracts in OTM range`);
+  console.log(`  ${chain.length} contracts in chain (filtered ${strikeMin.toFixed(0)}-${strikeMax.toFixed(0)})`);
 
-  // Snapshot each
+  // 3. Insert each contract into multi_quotes
   const insert = db.prepare(
     `INSERT OR REPLACE INTO multi_quotes
       (ticker, underlying, side, tier, expiration, strike, contract_type, bid, ask, mid, last,
@@ -141,12 +108,12 @@ async function fetchOne(t: Target): Promise<void> {
   );
   const fetchedAt = Date.now();
   let succeeded = 0;
-  for (const c of filtered) {
-    const snap = await getOptionSnapshot(t.ticker, c.ticker);
-    if (!snap) continue;
-    const q = snap.last_quote ?? {};
-    const day = snap.day ?? {};
-    const greeks = snap.greeks ?? {};
+  for (const c of chain) {
+    const details = c.details;
+    if (!details?.ticker || details.strike_price == null) continue;
+    const q = c.last_quote ?? {};
+    const day = c.day ?? {};
+    const greeks = c.greeks ?? {};
     const bid = q.bid ?? day.low ?? null;
     const ask = q.ask ?? day.high ?? null;
     const mid =
@@ -155,30 +122,30 @@ async function fetchOne(t: Target): Promise<void> {
       day.close ??
       null;
     insert.run(
-      c.ticker,
+      details.ticker,
       t.ticker,
       t.side,
       t.tier,
-      c.expiration_date,
-      c.strike_price,
-      c.contract_type,
+      details.expiration_date ?? EXPIRATION,
+      details.strike_price,
+      details.contract_type ?? contractType,
       bid,
       ask,
       mid,
-      snap.last_trade?.price ?? day.close ?? null,
-      snap.implied_volatility ?? null,
+      c.last_trade?.price ?? day.close ?? null,
+      c.implied_volatility ?? null,
       greeks.delta ?? null,
       greeks.gamma ?? null,
       greeks.theta ?? null,
       greeks.vega ?? null,
-      snap.open_interest ?? null,
+      c.open_interest ?? null,
       day.volume ?? null,
-      snap.underlying_asset?.price ?? spot ?? null,
+      c.underlying_asset?.price ?? spot,
       fetchedAt
     );
     succeeded++;
   }
-  console.log(`  ✓ snapshots: ${succeeded}/${filtered.length}`);
+  console.log(`  ✓ ${succeeded} contracts cached`);
 }
 
 async function main() {
@@ -187,9 +154,7 @@ async function main() {
       await fetchOne(target);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`  ✗ ${target.ticker} failed: ${msg.slice(0, 100)}`);
-      // After a failure, wait an extra 30 sec to let any rate limit cool down
-      await Bun.sleep(30_000);
+      console.warn(`  ✗ ${target.ticker} failed: ${msg.slice(0, 150)}`);
     }
   }
   console.log("\nDone.");

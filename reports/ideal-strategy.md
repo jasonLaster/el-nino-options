@@ -1,42 +1,49 @@
 # Ideal El Niño 2026 Strategy
 
-_As of 2026-05-18. Cross-ticker option-chain analysis across 9 names spanning fertilizer equities, food-retailer puts, and soft commodity ETFs. Built on the revised trade architecture from [el-nino-deep-dive.md § 7-revised](el-nino-deep-dive.md#7-revised--what-changes-now-that-the-thesis-is-consensus)._
+_As of 2026-05-18. Cross-ticker option-chain analysis across 13 names spanning fertilizer equities, food-retailer puts, soft commodity ETFs, and the post-payoff redeploy basket. Built on the revised trade architecture from [el-nino-deep-dive.md § 7-revised](el-nino-deep-dive.md#7-revised--what-changes-now-that-the-thesis-is-consensus)._
+
+> **🔄 Revision 2 (2026-05-18 PM)**: Re-pulled the basket using the Massive API bulk chain snapshot endpoint (`api.massive.com/v3/snapshot/options/{ticker}`) which returns the entire chain in one call. The wider strike range revealed a major previously-missed leg: **WEAT (wheat ETF) Jan 2027 $35 calls** at $0.69 mid, $/Δ = $351, γ/$ = 0.052, **OI = 40,490** (the deepest liquidity in the scan). Updated basket below adds WEAT as a co-anchor with CANE. Original v1 basket is preserved at the bottom for reference.
 
 ---
 
-## 🎯 TL;DR — The Ideal Convex Basket
+## 🎯 TL;DR — The Ideal Convex Basket (Revision 2)
 
-Total premium ≈ **$3,460** on a $5,000 risk budget. Five legs, defined risk, 8-month tenor (Jan 2027).
+Total premium ≈ **$3,868** on a $5,000 risk budget. Seven legs, defined risk, 8-month tenor (Jan 2027).
 
 | Leg | Direction | Contract | # | Cost / ctr | Total | Tier | What it pays for |
 |---|---|---|---|---:|---:|---|---|
-| **Sugar tail** | LONG CALL | **CANE Jan27 $13** | **5** | $50 | **$250** | T1 soft commodity | El Niño + Indian monsoon failure → sugar spike |
-| **Fertilizer beta** | LONG CALL | **MOS Jan27 $32.50** | **6** | $90 | **$540** | T2 fertilizer | Phosphate/potash repricing + ag-input demand |
-| **Fertilizer diversified** | LONG CALL | **NTR Jan27 $95** | **2** | $230 | **$460** | T2 fertilizer | All-nutrient + retail; complements MOS |
-| **Cocoa margin squeeze** | LONG PUT | **HSY Jan27 $160** | **1** | $620 | **$620** | T3 food margin | HSY beta to cocoa input crunch is the highest |
-| **Grains margin squeeze** | LONG PUT | **GIS Jan27 $30** | **4** | $216 | **$864** | T3 food margin | Cereal + wheat + sugar compression |
-| **Confectioner squeeze** | LONG PUT | **MDLZ Jan27 $52.50** | **4** | $180 | **$720** | T3 food margin | Cocoa + sugar; lowest IV of the puts |
-| | | | | **Total** | **$3,454** | | |
+| **Sugar tail** | LONG CALL | **CANE Jan27 $13** | **5** | $50 | **$250** | T1 soft commodity | El Niño + Indian monsoon failure → sugar spike. $/Δ=$177 (cheapest), γ/$=0.206 (highest) |
+| **Wheat tail** ⭐NEW⭐ | LONG CALL | **WEAT Jan27 $35** | **6** | $69 | **$414** | T1 soft commodity | Second-leg wheat strength on global stock draw. $/Δ=$351, **OI 40,490** (deepest liquidity in scan) |
+| **Fertilizer pure** | LONG CALL | **MOS Jan27 $32.50** | **6** | $90 | **$540** | T2 fertilizer | Phosphate/potash repricing |
+| **Fertilizer diversified** | LONG CALL | **NTR Jan27 $95** | **2** | $230 | **$460** | T2 fertilizer | All-nutrient + retail |
+| **Cocoa margin** | LONG PUT | **HSY Jan27 $160** | **1** | $620 | **$620** | T3 food margin | Hershey 40% of COGS = cocoa |
+| **Grains margin** | LONG PUT | **GIS Jan27 $30** | **4** | $216 | **$864** | T3 food margin | Cereal + wheat + sugar |
+| **Confectioner margin** | LONG PUT | **MDLZ Jan27 $52.50** | **4** | $180 | **$720** | T3 food margin | Lowest IV of the puts (25%) |
+| | | | | **Total** | **$3,868** | | |
 
-**Max loss**: $3,454 (100% of premium, treated as expected).
-**Expected payoff under modal El Niño scenario** (sugar +50%, MOS doubles, food retailers -15%): ~4× = $14k.
-**Expected payoff under Super El Niño tail** (sugar +120%, MOS triples, retailers -30%): ~7× = $24k.
+**Max loss**: $3,868 (100% of premium, treated as expected).
+**Side mix**: ~$1,664 long calls (43%) + $2,204 long puts (57%) — slightly put-weighted.
+**Expected payoff under modal Super El Niño** (sugar +90%, wheat +50%, MOS doubles, retailers -25%): ~5× = $19k.
+**Expected payoff under tail** (sugar +200%, wheat +100%, MOS triples, retailers -40%): ~13× = $52k.
 
 ---
 
 ## 1. The Cross-Ticker Scan — what the data revealed
 
-Pulled live Jan 2027 chains for 9 names across the thesis basket. Ranked by **$ per delta** at the 0.20 delta band — i.e. how much premium you pay to buy 1 unit of forward-looking directional exposure.
+Pulled live Jan 2027 chains for 13 names via the Massive API bulk snapshot endpoint. Ranked by **$ per delta** at the 0.20 delta band — i.e. how much premium you pay to buy 1 unit of forward-looking directional exposure.
 
-### Calls — cheapest convex exposure first
+### Calls — cheapest convex exposure first (Revision 2)
 
 | Ticker | Spot | ATM IV | Best K | Δ | Mid | **$/Δ** | γ/$ | OI |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | **CANE** | $9.98 | 50.4% | $13 | 0.283 | $0.50 | **$177** | **0.206** | 571 |
-| **MOS** | $21.76 | 48.9% | $32.50 | 0.202 | $0.90 | **$446** | **0.035** | 3,480 |
-| WEAT | $24.11 | 32.0% | $27 | 0.480 | $2.18 | $454 | 0.027 | 120 |
-| NTR | $71.56 | 36.6% | $95 | 0.215 | $2.30 | $1,071 | 0.006 | 3,827 |
-| CF | $125.24 | 50.1% | $185 | 0.246 | $6.50 | $2,640 | 0.001 | 863 |
+| **WEAT** ⭐ | $24.11 | 32.6% | **$35** | 0.196 | $0.69 | **$351** | **0.052** | **40,490** |
+| **MOS** | $21.76 | 48.8% | $32.50 | 0.202 | $0.90 | **$446** | **0.035** | 3,480 |
+| ADM | $80.40 | 34.0% | $105 | 0.202 | $2.15 | $1,065 | 0.006 | 7 (thin) |
+| NTR | $71.56 | 37.2% | $95 | 0.214 | $2.30 | $1,074 | 0.006 | 3,827 |
+| BG | $122.45 | 35.7% | $165 | 0.186 | $3.20 | $1,724 | 0.002 | 5 (thin) |
+| CF | $125.24 | 50.5% | $200 | 0.194 | $5.01 | $2,587 | 0.001 | 231 |
+| DE | $561.83 | 34.2% | $740 | 0.200 | $15.10 | $7,563 | 0.000 | 229 |
 
 ### Puts — cheapest defined-risk downside first
 
@@ -46,6 +53,18 @@ Pulled live Jan 2027 chains for 9 names across the thesis basket. Ranked by **$ 
 | **GIS** | $32.99 | 31.3% | $27.50 | -0.219 | $1.52 | **$693** | 0.020 | 711 |
 | **MDLZ** | $60.44 | 25.1% | $52.50 | -0.196 | $1.80 | **$920** | 0.011 | 1,062 |
 | HSY | $186.98 | 26.2% | $160 | -0.197 | $6.20 | $3,140 | 0.001 | 55 |
+
+### Why WEAT $35 is the *liquidity-adjusted* best leg ⭐ NEW
+
+The original draft listed WEAT as "contraindicated — already moved post-WASDE." That was correct for the *spot* move (wheat went limit-up the day WASDE printed). But the bulk-chain snapshot revealed something the per-strike approach missed: **40,490 contracts of open interest at the $35 strike** — by far the deepest liquidity in the entire scan.
+
+- **$/Δ = $351** (second-cheapest in the basket, half MOS)
+- **γ/$ = 0.052** (third-highest in the basket)
+- **ATM IV = 32.6%** (modest — not pricing the tail at all)
+- **Strike is 45% OTM** — this isn't chasing the WASDE move; it's betting on a *second leg* (Black Sea disruption, Brazil drought, US winter wheat damage)
+- **OI 40,490 = institutional positioning**. Either funds are heavily long upside-tail or short-vol — either way, deep liquidity means tight execution
+
+The 2026/27 US wheat ending stocks figure (762M bu, -18% YoY) was the WASDE-level news. But the *global* wheat picture is worse: Russia/Ukraine harvests, Argentine drought via El Niño, and an Indian export ban prevention (rice precedent) all stack on top. WEAT at $35 captures any of those secondary catalysts.
 
 ### Why CANE is the standout call
 
@@ -67,9 +86,20 @@ The structural fact is that **sugar is the most ENSO-sensitive commodity availab
 
 ### Why CF is too expensive at the chosen strikes
 
-- $185 strike on $125 spot is 48% OTM — that's deep tail, but **$6.50/contract = $2,640 / Δ** = paying up
-- The lower-delta strikes (which would be cheaper $/Δ) weren't included in our snapshot range
+- $200 strike on $125 spot is 60% OTM and still costs $5.01/contract → **$2,587 / Δ** = paying up
+- Even with the wider strike range from the Massive bulk snapshot, the cheapest $/Δ on CF (at the 0.20 band) is 5.8× more expensive than MOS at similar OTM
 - Decision: **skip CF entirely**; the MOS + NTR combo covers the fertilizer thesis better
+
+### Why the redeploy basket (DE, BG, ADM, CTVA) has terrible pre-payoff options
+
+The newly-fetched redeploy candidates confirm the deep-dive's framing: these are **stock-not-option** plays. From the table:
+
+- **DE Jan27 $740 calls at $15.10** → $/Δ = $7,563. Far too expensive per unit of exposure.
+- **BG Jan27 $165 calls at $3.20** → OI only 5 (thin), $/Δ = $1,724
+- **ADM Jan27 $105 calls at $2.15** → OI only 7, $/Δ = $1,065
+- **CTVA** → 0 Jan 2027 contracts in our OTM range (chain is sparse)
+
+These tickers don't have the liquidity for asymmetric option entry pre-payoff. **Buy the stock directly on the post-spike correction**, not the calls now.
 
 ### Why HSY puts are expensive but worth one contract
 
@@ -102,23 +132,31 @@ The structural fact is that **sugar is the most ENSO-sensitive commodity availab
 - **Side balance**: ~$1,250 calls + ~$2,200 puts — slightly more put-weighted because of the higher cost of food-retailer puts
 - **Tenor**: All Jan 2027 (~8 months DTE) — captures the DJF 2026-27 ENSO peak + first WASDE prints in the new harvest year
 
-### The basket
+### The basket (Revision 2 — final)
 
 ```
 LONG CALLS (upside / ag inflation thesis)
 ─────────────────────────────────────────
-  5 × CANE Jan27 $13 C  @ $0.50  =  $250   [SUGAR TAIL]
-  6 × MOS  Jan27 $32.50 C @ $0.90 =  $540   [FERT-PURE]
-  2 × NTR  Jan27 $95 C  @ $2.30  =  $460   [FERT-DIVERSIFIED]
+  5 × CANE Jan27 $13 C    @ $0.50  =  $250   [SUGAR TAIL — best convex]
+  6 × WEAT Jan27 $35 C    @ $0.69  =  $414   [WHEAT TAIL — deepest OI]
+  6 × MOS  Jan27 $32.50 C @ $0.90  =  $540   [FERT-PURE]
+  2 × NTR  Jan27 $95 C    @ $2.30  =  $460   [FERT-DIVERSIFIED]
 
 LONG PUTS (food-margin compression thesis)
 ──────────────────────────────────────────
-  1 × HSY  Jan27 $160 P @ $6.20  =  $620   [COCOA TARGETED]
-  4 × GIS  Jan27 $30 P  @ $2.16  =  $864   [GRAINS BROAD]
-  4 × MDLZ Jan27 $52.50 P @ $1.80 =  $720   [CHEAPEST VOL]
-─────────────────────────────────────────
-                              TOTAL = $3,454
+  1 × HSY  Jan27 $160 P   @ $6.20  =  $620   [COCOA TARGETED]
+  4 × GIS  Jan27 $30 P    @ $2.16  =  $864   [GRAINS BROAD]
+  4 × MDLZ Jan27 $52.50 P @ $1.80  =  $720   [CHEAPEST VOL 25%]
+─────────────────────────────────────────────
+                                TOTAL = $3,868
 ```
+
+### Why WEAT was added even though wheat already moved
+
+Three reasons:
+1. **The $35 strike isn't pricing further upside.** WEAT spot is $24.11; $35 is 45% OTM. WASDE limit-up moved spot by ~6%. The $35 strike implies a 45%+ further rally — well beyond what's priced.
+2. **OI 40,490 = institutional consensus.** Funds aren't passively long at this strike — they're either long-tail bullish or short-vol providers. Either way, execution is tight.
+3. **Liquidity-adjusted convexity dominates.** WEAT $/Δ = $351 with γ/$ = 0.052 and 40k+ OI is a better entry than NTR ($1,074 $/Δ with γ/$ = 0.006).
 
 ### Why this basket beats the original DBA-only structure
 
