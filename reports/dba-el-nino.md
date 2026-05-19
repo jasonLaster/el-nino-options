@@ -20,6 +20,18 @@ _As of 2026-05-18 — independent run, sibling repo to options-rr._
 > 4. **The DBA structure remains directionally right but with shorter half-life.** Enter on weakness, don't average, take 50% off at 3x, reassess by Sep 2026. The June 11-12 NOAA + WASDE prints are the next inflection.
 >
 > See [el-nino-deep-dive.md § 7-revised](el-nino-deep-dive.md#7-revised--what-changes-now-that-the-thesis-is-consensus) for the updated trade architecture across the whole opportunity set.
+>
+> ### 🎯 Sequel: cross-ticker scan in [ideal-strategy.md](ideal-strategy.md)
+>
+> A cross-ticker option-chain scan (via the Massive API bulk snapshot endpoint, 16 names) found two legs that dominate DBA on a $/Δ basis:
+>
+> - **CANE Jan27 $13 calls** @ $0.50 → $/Δ = $177, γ/$ = 0.206 (best in scan)
+> - **WEAT Jan27 $35 calls** @ $0.69 → $/Δ = $351, **OI = 40,490** (deepest liquidity)
+>
+> Both are dramatically cheaper convexity than DBA $35 calls ($/Δ ≈ $318). The 7-leg ideal basket built around them is a strictly better Ackman-style construction than the DBA-only play.
+>
+> **If you want simplicity** → stay with the DBA $35 recommendation below.
+> **If you want the highest-asymmetry trade** → execute the [ideal-strategy.md](ideal-strategy.md) basket.
 
 ## TL;DR — Recommendation
 
